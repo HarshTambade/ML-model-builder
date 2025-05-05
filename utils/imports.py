@@ -7,14 +7,67 @@ import logging
 import pandas as pd
 import numpy as np
 import os
+import sys
 from utils.config import DEPENDENCY_CONFIG
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+def suppress_torch_warnings():
+    """
+    Suppress torch-related warnings from Streamlit's file watcher.
+    This function can be called at the beginning of the application to reduce noise.
+    """
+    try:
+        # Get reference to the streamlit logger
+        st_logger = logging.getLogger('streamlit')
+        
+        # Create a filter to remove torch-related warnings
+        class TorchWarningFilter(logging.Filter):
+            def filter(self, record):
+                # Return False to suppress log messages containing these strings
+                return not any(x in record.getMessage() for x in 
+                    ['torch.classes', 'Tried to instantiate class', 'RuntimeError: no running event loop'])
+                
+        # Add the filter to the streamlit logger
+        st_logger.addFilter(TorchWarningFilter())
+        
+        # Also apply to root logger
+        logging.getLogger().addFilter(TorchWarningFilter())
+        
+        logger.info("Torch warning suppression activated")
+    except Exception as e:
+        logger.warning(f"Failed to suppress torch warnings: {str(e)}")
+
+def torch_is_compatible():
+    """Check if PyTorch is installed AND compatible with the current environment."""
+    if not DEPENDENCY_CONFIG["USE_PYTORCH"]:
+        return False
+        
+    try:
+        # Try importing torch
+        import torch
+        
+        # Try a simple operation to check compatibility
+        try:
+            x = torch.zeros(1)
+            return True
+        except Exception as e:
+            logger.warning(f"PyTorch is installed but not compatible: {str(e)}")
+            return False
+    except ImportError:
+        return False
+    except Exception as e:
+        logger.warning(f"PyTorch import raised an unexpected error: {str(e)}")
+        return False
+
 def is_package_available(package_name):
     """Check if a package is available/installed and enabled in configuration."""
+    # Special case for PyTorch - check compatibility too
+    if package_name == "torch":
+        return torch_is_compatible()
+        
     # Check if the package is disabled in configuration
     if package_name == "torch" and not DEPENDENCY_CONFIG["USE_PYTORCH"]:
         logger.info(f"Package {package_name} is disabled in configuration.")

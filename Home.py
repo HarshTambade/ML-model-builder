@@ -16,6 +16,11 @@ from utils.ui import (
     set_page_config, welcome_header, create_card, display_footer,
     sidebar_navigation, gradient_text, create_feature_list, add_vertical_space
 )
+from utils.imports import suppress_torch_warnings, logger
+
+# Suppress torch-related warnings that flood the console
+suppress_torch_warnings()
+logger.info("Starting ALPHA ML Platform")
 
 # Configure the page
 set_page_config(title="Home", layout="wide")
