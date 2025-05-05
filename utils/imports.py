@@ -20,6 +20,33 @@ def suppress_torch_warnings():
     This function can be called at the beginning of the application to reduce noise.
     """
     try:
+        # Completely disable torch-related modules in streamlit file watching
+        import sys
+        
+        # Create a mock module for torch.classes
+        class MockTorchClasses:
+            def __getattr__(self, name):
+                return self
+                
+            def __path__(self):
+                return []
+                
+        # Create a mock module for torch that intercepts problematic paths
+        class MockTorch:
+            def __init__(self):
+                self.classes = MockTorchClasses()
+                
+            def __getattr__(self, name):
+                if name == "classes":
+                    return self.classes
+                return None
+                
+        # Only install the mock if PyTorch is not needed
+        if not DEPENDENCY_CONFIG["USE_PYTORCH"]:
+            if "torch" in sys.modules:
+                # Replace torch.classes with our mock to prevent errors
+                sys.modules["torch.classes"] = MockTorchClasses()
+        
         # Get reference to the streamlit logger
         st_logger = logging.getLogger('streamlit')
         
@@ -27,14 +54,25 @@ def suppress_torch_warnings():
         class TorchWarningFilter(logging.Filter):
             def filter(self, record):
                 # Return False to suppress log messages containing these strings
-                return not any(x in record.getMessage() for x in 
-                    ['torch.classes', 'Tried to instantiate class', 'RuntimeError: no running event loop'])
+                problematic_patterns = [
+                    'torch.classes', 
+                    'Tried to instantiate class', 
+                    'RuntimeError: no running event loop',
+                    'Could not convert dtype',
+                    'Arrow'
+                ]
+                return not any(x in str(record.getMessage()) for x in problematic_patterns)
                 
         # Add the filter to the streamlit logger
         st_logger.addFilter(TorchWarningFilter())
         
         # Also apply to root logger
         logging.getLogger().addFilter(TorchWarningFilter())
+        
+        # Set pandas display options to prevent truncation that might cause serialization issues
+        pd.set_option('display.max_columns', None)
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.width', None)
         
         logger.info("Torch warning suppression activated")
     except Exception as e:
@@ -258,3 +296,47 @@ def fix_dataframe_dtypes(df):
         except:
             # If everything fails, return the original DataFrame
             return df 
+
+def patch_streamlit_dataframe_display():
+    """
+    Patch Streamlit's DataFrame display functionality to handle serialization errors.
+    This adds a wrapper around Streamlit's dataframe display methods.
+    """
+    try:
+        import streamlit as st
+        
+        # Store original functions
+        original_dataframe = st.dataframe
+        original_table = st.table
+        original_write = st.write
+        
+        # Create patched versions that apply fixes before display
+        def patched_dataframe(data, *args, **kwargs):
+            if isinstance(data, pd.DataFrame):
+                # Apply fixes to make DataFrame compatible with Arrow
+                fixed_data = fix_dataframe_dtypes(data)
+                return original_dataframe(fixed_data, *args, **kwargs)
+            return original_dataframe(data, *args, **kwargs)
+        
+        def patched_table(data, *args, **kwargs):
+            if isinstance(data, pd.DataFrame):
+                # Apply fixes to make DataFrame compatible with Arrow
+                fixed_data = fix_dataframe_dtypes(data)
+                return original_table(fixed_data, *args, **kwargs)
+            return original_table(data, *args, **kwargs)
+        
+        def patched_write(*args, **kwargs):
+            if len(args) > 0 and isinstance(args[0], pd.DataFrame):
+                # Apply fixes to make DataFrame compatible with Arrow
+                fixed_data = fix_dataframe_dtypes(args[0])
+                return original_write(fixed_data, *args[1:], **kwargs)
+            return original_write(*args, **kwargs)
+        
+        # Replace the original functions with patched versions
+        st.dataframe = patched_dataframe
+        st.table = patched_table
+        st.write = patched_write
+        
+        logger.info("Streamlit DataFrame display patched for better compatibility")
+    except Exception as e:
+        logger.warning(f"Failed to patch Streamlit DataFrame display: {str(e)}") 

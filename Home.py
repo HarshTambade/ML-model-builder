@@ -16,10 +16,14 @@ from utils.ui import (
     set_page_config, welcome_header, create_card, display_footer,
     sidebar_navigation, gradient_text, create_feature_list, add_vertical_space
 )
-from utils.imports import suppress_torch_warnings, logger
+from utils.imports import suppress_torch_warnings, patch_streamlit_dataframe_display, logger
 
 # Suppress torch-related warnings that flood the console
 suppress_torch_warnings()
+
+# Patch Streamlit's DataFrame display to handle serialization errors
+patch_streamlit_dataframe_display()
+
 logger.info("Starting ALPHA ML Platform")
 
 # Configure the page
