@@ -1,0 +1,337 @@
+/* ALPHA Platform Main Styles */
+
+/* Custom theme colors */
+:root {
+    --primary-color: #4e54c8;
+    --primary-light: #7377de;
+    --primary-dark: #292db0;
+    --secondary-color: #ff6b6b;
+    --secondary-light: #ff9d9d;
+    --secondary-dark: #ff3838;
+    --accent-color: #34eba8;
+    --accent-light: #7af2c5;
+    --accent-dark: #00d689;
+    --background-color: #f8f9fa;
+    --card-bg-color: #ffffff;
+    --text-color: #2c3e50;
+    --light-text: #6c757d;
+    --success-color: #00c851;
+    --warning-color: #ffbb33;
+    --danger-color: #ff4444;
+    --info-color: #33b5e5;
+    --gradient-primary: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+    --gradient-secondary: linear-gradient(90deg, var(--secondary-color), var(--secondary-light));
+    --gradient-accent: linear-gradient(90deg, var(--accent-color), var(--accent-light));
+}
+
+/* Main container styling */
+.stApp {
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-family: 'Inter', sans-serif;
+}
+
+/* Header styling */
+header {
+    background: var(--gradient-primary);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Card styling */
+.card {
+    background-color: var(--card-bg-color);
+    border-radius: 0.8rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin-bottom: 1.5rem;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Button styling */
+.stButton > button {
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Primary button */
+.primary-btn {
+    background: var(--gradient-primary) !important;
+    color: white !important;
+    border: none !important;
+}
+
+/* Secondary button */
+.secondary-btn {
+    background: var(--gradient-secondary) !important;
+    color: white !important;
+    border: none !important;
+}
+
+/* Accent button */
+.accent-btn {
+    background: var(--gradient-accent) !important;
+    color: var(--text-color) !important;
+    border: none !important;
+}
+
+/* Sidebar styling */
+.css-1d391kg, .css-163ttbj {
+    background-color: var(--card-bg-color);
+}
+
+/* Progress bar styling */
+.stProgress > div > div {
+    background-color: var(--primary-color);
+}
+
+/* Input field styling */
+.stTextInput > div > div > input {
+    border-radius: 0.5rem;
+    border: 1px solid #e0e0e0;
+    padding: 0.75rem;
+}
+
+.stTextInput > div > div > input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(78, 84, 200, 0.25);
+}
+
+/* Select box styling */
+.stSelectbox > div > div > div {
+    border-radius: 0.5rem;
+    border: 1px solid #e0e0e0;
+}
+
+/* File uploader styling */
+.stFileUploader > div > div {
+    border-radius: 0.5rem;
+    border: 2px dashed var(--primary-light);
+    padding: 1.5rem;
+}
+
+/* Data frame styling */
+.stDataFrame {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+/* Alert / success message styling */
+.success-box {
+    background-color: rgba(0, 200, 81, 0.1);
+    border-left: 4px solid var(--success-color);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.warning-box {
+    background-color: rgba(255, 187, 51, 0.1);
+    border-left: 4px solid var(--warning-color);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.error-box {
+    background-color: rgba(255, 68, 68, 0.1);
+    border-left: 4px solid var(--danger-color);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.info-box {
+    background-color: rgba(51, 181, 229, 0.1);
+    border-left: 4px solid var(--info-color);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Charts and visualizations */
+.chart-container {
+    background-color: var(--card-bg-color);
+    border-radius: 0.8rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    margin-bottom: 1.5rem;
+}
+
+/* Tabs styling */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 1rem;
+}
+
+.stTabs [data-baseweb="tab"] {
+    height: 3rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+    padding: 0 1rem;
+}
+
+.stTabs [aria-selected="true"] {
+    background-color: var(--primary-light);
+    color: white;
+}
+
+/* Tooltip styling */
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 200px;
+    background-color: var(--text-color);
+    color: white;
+    text-align: center;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Custom container classes */
+.flex-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.gradient-border {
+    position: relative;
+    border-radius: 0.8rem;
+    padding: 3px;
+    background: var(--gradient-primary);
+}
+
+.gradient-border > div {
+    background-color: var(--card-bg-color);
+    border-radius: 0.6rem;
+    padding: 1.5rem;
+}
+
+/* Animation keyframes */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(78, 84, 200, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(78, 84, 200, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(78, 84, 200, 0);
+    }
+}
+
+.pulse-animation {
+    animation: pulse 2s infinite;
+}
+
+/* Chat interface styling */
+.chat-message {
+    padding: 1rem;
+    border-radius: 1rem;
+    margin-bottom: 1rem;
+    max-width: 80%;
+}
+
+.user-message {
+    background-color: var(--primary-light);
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 0;
+}
+
+.bot-message {
+    background-color: #f0f2f5;
+    color: var(--text-color);
+    margin-right: auto;
+    border-bottom-left-radius: 0;
+}
+
+/* Loader animation */
+.loader {
+    width: 48px;
+    height: 48px;
+    border: 5px solid var(--primary-light);
+    border-bottom-color: transparent;
+    border-radius: 50%;
+    display: inline-block;
+    box-sizing: border-box;
+    animation: rotation 1s linear infinite;
+}
+
+@keyframes rotation {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card {
+        padding: 1rem;
+    }
+    
+    .chat-message {
+        max-width: 90%;
+    }
+}
+
+/* For dark theme compatibility */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background-color: #121212;
+        --card-bg-color: #1e1e1e;
+        --text-color: #e0e0e0;
+        --light-text: #a0a0a0;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary-light);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+} 

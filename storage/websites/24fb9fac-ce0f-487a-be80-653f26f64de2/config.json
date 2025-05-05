@@ -1,0 +1,41 @@
+{
+  "title": "My Website",
+  "description": "A beautiful static website",
+  "template": "business",
+  "pages": [
+    {
+      "id": "dc52dda4-5e85-43b1-9284-1d0744d9d49d",
+      "name": "Home",
+      "components": []
+    },
+    {
+      "id": "d4196dde-320f-4616-b14d-80d412e5c4b2",
+      "name": "Services",
+      "components": []
+    },
+    {
+      "id": "682cdd52-f99f-46a2-aef3-192b5f3ad7be",
+      "name": "About",
+      "components": []
+    },
+    {
+      "id": "6acd35eb-0373-4727-a265-204851fbaa3e",
+      "name": "Contact",
+      "components": []
+    }
+  ],
+  "theme": {
+    "primary_color": "#4e54c8",
+    "background_color": "#ffffff",
+    "text_color": "#333333",
+    "font": "sans-serif"
+  },
+  "css_framework": "bootstrap5",
+  "js_framework": "none",
+  "custom_css": "",
+  "custom_js": "",
+  "created_at": "2025-05-05 01:37:16",
+  "last_updated": "2025-05-05 01:38:10",
+  "custom_html": "",
+  "id": "24fb9fac-ce0f-487a-be80-653f26f64de2"
+}

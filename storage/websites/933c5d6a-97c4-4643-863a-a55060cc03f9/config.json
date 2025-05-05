@@ -1,0 +1,20 @@
+{
+  "title": "My Website",
+  "description": "A beautiful static website",
+  "template": null,
+  "pages": [],
+  "theme": {
+    "primary_color": "#4e54c8",
+    "background_color": "#ffffff",
+    "text_color": "#333333",
+    "font": "sans-serif"
+  },
+  "css_framework": "bootstrap5",
+  "js_framework": "none",
+  "custom_css": "",
+  "custom_js": "",
+  "created_at": "2025-05-05 01:28:04",
+  "last_updated": "2025-05-05 01:31:20",
+  "custom_html": "",
+  "id": "933c5d6a-97c4-4643-863a-a55060cc03f9"
+}

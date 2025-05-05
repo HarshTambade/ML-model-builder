@@ -1,0 +1,30 @@
+{
+  "general": {
+    "theme": "light",
+    "wide_mode": true,
+    "show_tooltips": true,
+    "notifications_enabled": true,
+    "notification_level": "info"
+  },
+  "storage": {
+    "data_directory": "D:\\ML model builder\\storage\\datasets",
+    "models_directory": "D:\\ML model builder\\storage\\models",
+    "auto_cleanup": false,
+    "cleanup_threshold_days": 30
+  },
+  "performance": {
+    "enable_caching": true,
+    "parallelism": 2,
+    "logging_level": "INFO"
+  },
+  "developer": {
+    "developer_mode": false,
+    "allow_custom_code": false,
+    "experimental_features": false
+  },
+  "github": {
+    "connected": false,
+    "username": "",
+    "token_saved": false
+  }
+}

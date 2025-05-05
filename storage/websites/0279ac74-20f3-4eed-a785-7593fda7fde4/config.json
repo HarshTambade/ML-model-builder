@@ -1,0 +1,51 @@
+{
+  "title": "coaching website",
+  "description": "A beautiful static website for my coaching classes with lots of images an image gallery and it should look attractive ",
+  "template": "landing_page",
+  "pages": [
+    {
+      "id": "6ce0d767-6696-4afd-bf14-efbb2768789d",
+      "name": "Home",
+      "components": []
+    },
+    {
+      "id": "1ef1befe-0549-47b7-81e7-312cf65c16cc",
+      "name": "about",
+      "components": []
+    },
+    {
+      "id": "b135d369-336c-4246-8a67-43dcc884e9a7",
+      "name": "contact",
+      "components": []
+    },
+    {
+      "id": "5f5df04d-a8cd-4add-ba8b-bcbf84826f52",
+      "name": "gallery",
+      "components": []
+    },
+    {
+      "id": "37c5b86c-bea1-4c00-94c9-c6d29c49b614",
+      "name": "our teachers",
+      "components": []
+    },
+    {
+      "id": "5b2ee43b-5aa2-4297-b722-80d914a0feab",
+      "name": "our teachers",
+      "components": []
+    }
+  ],
+  "theme": {
+    "primary_color": "#4e54c8",
+    "background_color": "#ffffff",
+    "text_color": "#333333",
+    "font": "sans-serif"
+  },
+  "css_framework": "bootstrap5",
+  "js_framework": "none",
+  "custom_css": "",
+  "custom_js": "",
+  "created_at": "2025-05-05 01:11:41",
+  "last_updated": "2025-05-05 01:18:07",
+  "custom_html": "",
+  "id": "0279ac74-20f3-4eed-a785-7593fda7fde4"
+}
