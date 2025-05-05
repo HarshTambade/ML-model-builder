@@ -174,56 +174,89 @@ def download_kaggle_dataset(dataset_ref, path=None, unzip=True):
 
 def load_kaggle_dataset(dataset_ref, file_name=None):
     """Download and load a Kaggle dataset."""
-    # Download the dataset
-    result = download_kaggle_dataset(dataset_ref)
-    
-    if "error" in result:
-        return result
-    
-    dataset_dir = result["download_path"]
-    
-    # List all CSV files in the dataset
-    csv_files = []
-    for root, _, files in os.walk(dataset_dir):
-        for file in files:
-            if file.endswith('.csv'):
-                csv_files.append(os.path.join(root, file))
-    
-    if not csv_files:
-        return {"error": "No CSV files found in the dataset", "available_files": os.listdir(dataset_dir)}
-    
-    # If file_name is specified, look for that specific file
-    if file_name:
-        matching_files = [f for f in csv_files if os.path.basename(f) == file_name]
-        if not matching_files:
-            return {"error": f"File '{file_name}' not found", "available_files": [os.path.basename(f) for f in csv_files]}
-        csv_file = matching_files[0]
-    else:
-        # Otherwise, use the first CSV file found
-        csv_file = csv_files[0]
-    
     try:
-        # Load the CSV file
-        df = pd.read_csv(csv_file)
+        # Download the dataset
+        result = download_kaggle_dataset(dataset_ref)
         
-        # Fix DataFrame dtypes for ArrowInvalid serialization errors
-        df = fix_dataframe_dtypes(df)
+        if "error" in result:
+            return result
         
-        # Return the loaded data
-        return {
-            "data": df,
-            "file": os.path.basename(csv_file),
-            "shape": df.shape,
-            "columns": list(df.columns)
-        }
+        dataset_dir = result["download_path"]
+        
+        # List all CSV files in the dataset
+        csv_files = []
+        for root, _, files in os.walk(dataset_dir):
+            for file in files:
+                if file.endswith('.csv'):
+                    csv_files.append(os.path.join(root, file))
+        
+        if not csv_files:
+            available_files = []
+            for root, _, files in os.walk(dataset_dir):
+                for file in files:
+                    available_files.append(os.path.join(root, file))
+            
+            return {
+                "error": "No CSV files found in the dataset", 
+                "available_files": [os.path.basename(f) for f in available_files],
+                "message": "Try importing a specific file by name if the dataset contains non-CSV files."
+            }
+        
+        # If file_name is specified, look for that specific file
+        if file_name:
+            matching_files = [f for f in csv_files if os.path.basename(f) == file_name]
+            if not matching_files:
+                return {
+                    "error": f"File '{file_name}' not found", 
+                    "available_files": [os.path.basename(f) for f in csv_files],
+                    "message": "Please select one of the available CSV files."
+                }
+            csv_file = matching_files[0]
+        else:
+            # Otherwise, use the first CSV file found
+            csv_file = csv_files[0]
+        
+        try:
+            # Load the CSV file with proper error handling for common issues
+            try:
+                df = pd.read_csv(csv_file, low_memory=False)
+            except pd.errors.ParserError:
+                # Try with error handling enabled
+                df = pd.read_csv(csv_file, error_bad_lines=False, warn_bad_lines=True)
+            except UnicodeDecodeError:
+                # Try different encodings
+                for encoding in ['utf-8', 'latin1', 'ISO-8859-1', 'cp1252']:
+                    try:
+                        df = pd.read_csv(csv_file, encoding=encoding)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                else:
+                    return {"error": f"Failed to decode CSV file with any encoding"}
+            
+            # Fix DataFrame dtypes for ArrowInvalid serialization errors
+            df = fix_dataframe_dtypes(df)
+            
+            # Return the loaded data
+            return {
+                "data": df,
+                "file": os.path.basename(csv_file),
+                "file_path": csv_file,
+                "shape": df.shape,
+                "columns": list(df.columns)
+            }
+        except Exception as e:
+            logger.error(f"Error loading CSV file: {str(e)}")
+            return {"error": f"Error loading CSV file: {str(e)}"}
     except Exception as e:
-        return {"error": f"Error loading CSV file: {str(e)}"}
+        logger.error(f"Error in load_kaggle_dataset: {str(e)}")
+        return {"error": f"Failed to load Kaggle dataset: {str(e)}"}
 
 def import_kaggle_dataset(dataset_ref, file_name=None, dataset_name=None, description=None):
     """Import a Kaggle dataset into the platform."""
     try:
         # Load the dataset
-        load_result = load_kaggle_dataset(dataset_ref, file_name, force_download=False)
+        load_result = load_kaggle_dataset(dataset_ref, file_name)
         
         if isinstance(load_result, dict) and "error" in load_result:
             return load_result

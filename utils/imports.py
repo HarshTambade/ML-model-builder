@@ -130,22 +130,78 @@ def fix_dataframe_dtypes(df):
             
         # Make a copy to avoid modifying the original
         result_df = df.copy()
+        
+        # Handle empty DataFrame
+        if result_df.empty:
+            return result_df
             
-        # Convert NumPy Float64DType to standard float64 for PyArrow compatibility
-        for col in result_df.select_dtypes(include=['float']).columns:
+        # Convert NumPy float types to standard float64
+        for col in result_df.select_dtypes(include=['float', 'float32', 'float64']).columns:
             result_df[col] = result_df[col].astype('float64')
             
-        # Convert NumPy Int64DType to standard int64
-        for col in result_df.select_dtypes(include=['integer']).columns:
-            result_df[col] = result_df[col].astype('int64')
+        # Convert NumPy integer types to standard int64 where possible
+        for col in result_df.select_dtypes(include=['integer', 'int32', 'int64']).columns:
+            # Check for NaN values which can't be converted to int
+            if result_df[col].isna().any():
+                result_df[col] = result_df[col].astype('float64')
+            else:
+                result_df[col] = result_df[col].astype('int64')
+        
+        # Handle boolean columns
+        for col in result_df.select_dtypes(include=['bool']).columns:
+            result_df[col] = result_df[col].astype('bool')
             
-        # Handle object columns with mixed types if needed
+        # Handle datetime columns
+        for col in result_df.select_dtypes(include=['datetime']).columns:
+            result_df[col] = pd.to_datetime(result_df[col])
+            
+        # Handle object/string columns with mixed types
         for col in result_df.select_dtypes(include=['object']).columns:
-            if pd.api.types.infer_dtype(result_df[col]) == 'mixed':
-                # Convert to string to ensure compatibility
+            # Try to infer better type
+            inferred_type = pd.api.types.infer_dtype(result_df[col])
+            
+            if inferred_type == 'mixed':
+                # Convert mixed types to string for safety
                 result_df[col] = result_df[col].astype(str)
+            elif inferred_type == 'mixed-integer':
+                # Try to convert to float (which can represent integers with NaNs)
+                try:
+                    result_df[col] = result_df[col].astype('float64')
+                except:
+                    result_df[col] = result_df[col].astype(str)
+            elif inferred_type == 'string':
+                # Ensure strings are represented as 'object' dtype
+                result_df[col] = result_df[col].astype('object')
+                
+        # Handle any complex types that might cause issues (like arrays in cells)
+        for col in result_df.columns:
+            if result_df[col].apply(lambda x: isinstance(x, (list, dict, tuple))).any():
+                # Convert complex types to strings
+                result_df[col] = result_df[col].apply(lambda x: str(x) if isinstance(x, (list, dict, tuple)) else x)
                 
         return result_df
+        
     except Exception as e:
         logger.warning(f"Error fixing DataFrame dtypes: {str(e)}")
-        return df  # Return original DataFrame if conversion fails 
+        # If we encounter errors, try to convert the entire DataFrame to simpler types
+        try:
+            # Last resort attempt: convert all columns to appropriate basic types
+            for col in df.columns:
+                try:
+                    # Try to infer the type and convert appropriately
+                    inferred_type = pd.api.types.infer_dtype(df[col])
+                    if 'int' in inferred_type:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                    elif 'float' in inferred_type:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                    elif 'datetime' in inferred_type:
+                        df[col] = pd.to_datetime(df[col], errors='coerce')
+                    else:
+                        df[col] = df[col].astype(str)
+                except:
+                    # If all else fails, convert to string
+                    df[col] = df[col].astype(str)
+            return df
+        except:
+            # If everything fails, return the original DataFrame
+            return df 

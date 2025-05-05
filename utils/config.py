@@ -9,8 +9,8 @@ from pathlib import Path
 
 # Configuration for optional dependencies that might cause issues
 DEPENDENCY_CONFIG = {
-    "USE_PYTORCH": os.environ.get("USE_PYTORCH", "false").lower() == "true",
-    "USE_TENSORFLOW": os.environ.get("USE_TENSORFLOW", "false").lower() == "true",
+    "USE_PYTORCH": os.environ.get("USE_PYTORCH", "true").lower() == "true",
+    "USE_TENSORFLOW": os.environ.get("USE_TENSORFLOW", "true").lower() == "true",
     "USE_HUGGINGFACE": os.environ.get("USE_HUGGINGFACE", "true").lower() == "true",
 }
 
