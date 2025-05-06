@@ -17,37 +17,52 @@ logger = logging.getLogger(__name__)
 def suppress_torch_warnings():
     """
     Suppress torch-related warnings from Streamlit's file watcher.
-    This function can be called at the beginning of the application to reduce noise.
+    This function creates monkey patches to prevent errors related to PyTorch.
     """
     try:
         # Completely disable torch-related modules in streamlit file watching
         import sys
+        import types
         
-        # Create a mock module for torch.classes
+        # Step 1: Create a better mock for torch.classes that implements __path__
+        class MockPath:
+            _path = []
+            
         class MockTorchClasses:
+            __path__ = MockPath()
+            
             def __getattr__(self, name):
                 return self
                 
-            def __path__(self):
-                return []
-                
-        # Create a mock module for torch that intercepts problematic paths
-        class MockTorch:
-            def __init__(self):
-                self.classes = MockTorchClasses()
-                
-            def __getattr__(self, name):
-                if name == "classes":
-                    return self.classes
-                return None
-                
-        # Only install the mock if PyTorch is not needed
-        if not DEPENDENCY_CONFIG["USE_PYTORCH"]:
+        # Step 2: Monkey patch the problematic function in Streamlit's file watcher
+        try:
+            import streamlit.watcher.local_sources_watcher as watcher
+            
+            # Save the original function
+            original_extract_paths = watcher.extract_paths
+            
+            # Create a safer version that skips torch-related modules
+            def safe_extract_paths(module):
+                module_name = getattr(module, "__name__", "")
+                if "torch" in module_name:
+                    return []
+                try:
+                    return original_extract_paths(module)
+                except Exception:
+                    return []
+            
+            # Apply the monkey patch
+            watcher.extract_paths = safe_extract_paths
+            logger.info("Streamlit file watcher patched to ignore torch modules")
+        except ImportError:
+            # If we can't import watcher, use the mock approach
             if "torch" in sys.modules:
-                # Replace torch.classes with our mock to prevent errors
                 sys.modules["torch.classes"] = MockTorchClasses()
+                if hasattr(sys.modules["torch"], "classes"):
+                    sys.modules["torch"].classes = MockTorchClasses()
+                logger.info("Mock torch.classes module installed")
         
-        # Get reference to the streamlit logger
+        # Step 3: Filter torch-related warnings from logs
         st_logger = logging.getLogger('streamlit')
         
         # Create a filter to remove torch-related warnings
@@ -59,14 +74,14 @@ def suppress_torch_warnings():
                     'Tried to instantiate class', 
                     'RuntimeError: no running event loop',
                     'Could not convert dtype',
+                    'ArrowInvalid',
                     'Arrow'
                 ]
-                return not any(x in str(record.getMessage()) for x in problematic_patterns)
+                message = str(record.getMessage())
+                return not any(x in message for x in problematic_patterns)
                 
-        # Add the filter to the streamlit logger
+        # Add the filter to all relevant loggers
         st_logger.addFilter(TorchWarningFilter())
-        
-        # Also apply to root logger
         logging.getLogger().addFilter(TorchWarningFilter())
         
         # Set pandas display options to prevent truncation that might cause serialization issues
@@ -340,3 +355,93 @@ def patch_streamlit_dataframe_display():
         logger.info("Streamlit DataFrame display patched for better compatibility")
     except Exception as e:
         logger.warning(f"Failed to patch Streamlit DataFrame display: {str(e)}") 
+
+def apply_torch_monkey_patch():
+    """
+    Apply a comprehensive monkey patch to disable PyTorch-related functionality
+    and prevent errors when PyTorch is installed but not working correctly.
+    This is a more extreme solution than suppress_torch_warnings.
+    """
+    import sys
+    import types
+    
+    # Only apply if PyTorch is disabled in configuration
+    if DEPENDENCY_CONFIG.get("USE_PYTORCH", False):
+        logger.info("PyTorch is enabled, not applying monkey patch")
+        return
+        
+    logger.info("Applying PyTorch monkey patch to prevent errors")
+    
+    # Create a complete mock torch module
+    class MockTorch(types.ModuleType):
+        def __init__(self):
+            super().__init__("torch")
+            self._C = types.SimpleNamespace()
+            self._C._get_custom_class_python_wrapper = lambda *args, **kwargs: None
+            self.classes = types.SimpleNamespace()
+            self.classes.__path__ = types.SimpleNamespace(_path=[])
+        
+        def __getattr__(self, name):
+            # Return empty modules/functions for any attributes
+            if name.startswith('__') and name.endswith('__'):
+                raise AttributeError(f"module 'torch' has no attribute '{name}'")
+            
+            # Create a new namespace for submodules
+            value = types.SimpleNamespace()
+            setattr(self, name, value)
+            return value
+            
+    # Replace torch in sys.modules if it exists
+    if "torch" in sys.modules:
+        # Save any critical functionality if needed
+        old_torch = sys.modules["torch"]
+        
+        # Install mock
+        sys.modules["torch"] = MockTorch()
+        logger.info("PyTorch module completely replaced with mock")
+    
+    # Monkey patch streamlit to avoid scanning torch modules
+    try:
+        # Try to patch streamlit's file watcher directly
+        import streamlit.watcher.local_sources_watcher as watcher
+        
+        # Save original functions
+        if not hasattr(watcher, "_original_get_module_paths"):
+            watcher._original_get_module_paths = watcher.get_module_paths
+        
+        # Create safe versions that skip torch
+        def safe_get_module_paths(filenames):
+            def is_not_torch_module(module_name):
+                return "torch" not in module_name
+                
+            # Filter out torch-related modules before calling original
+            safe_modules = filter(is_not_torch_module, watcher._original_get_module_paths(filenames))
+            return list(safe_modules)
+            
+        # Apply patches
+        watcher.get_module_paths = safe_get_module_paths
+        logger.info("Streamlit file watcher patched to completely ignore torch modules")
+    except (ImportError, AttributeError) as e:
+        logger.warning(f"Could not patch Streamlit watcher: {str(e)}")
+    
+    # Suppress Arrow serialization errors
+    try:
+        if "pyarrow" in sys.modules:
+            # Monkey patch pandas to_arrow to handle problematic conversions
+            original_to_arrow = pd.DataFrame.to_arrow
+            
+            def safe_to_arrow(self, *args, **kwargs):
+                try:
+                    # Try original conversion
+                    return original_to_arrow(self, *args, **kwargs)
+                except Exception as e:
+                    # If it fails, fix dtypes and try again
+                    fixed_df = fix_dataframe_dtypes(self)
+                    return original_to_arrow(fixed_df, *args, **kwargs)
+                    
+            pd.DataFrame.to_arrow = safe_to_arrow
+            logger.info("Fixed pandas to_arrow conversion for better Arrow compatibility")
+    except Exception as e:
+        logger.warning(f"Could not patch pandas arrow conversion: {str(e)}")
+        
+    return True 

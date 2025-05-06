@@ -16,9 +16,15 @@ from utils.ui import (
     set_page_config, welcome_header, create_card, display_footer,
     sidebar_navigation, gradient_text, create_feature_list, add_vertical_space
 )
-from utils.imports import suppress_torch_warnings, patch_streamlit_dataframe_display, logger
+from utils.imports import (
+    suppress_torch_warnings, patch_streamlit_dataframe_display, 
+    apply_torch_monkey_patch, logger
+)
 
-# Suppress torch-related warnings that flood the console
+# Apply the most comprehensive fix for PyTorch-related issues
+apply_torch_monkey_patch()
+
+# Suppress any remaining torch-related warnings
 suppress_torch_warnings()
 
 # Patch Streamlit's DataFrame display to handle serialization errors
