@@ -26,13 +26,22 @@ from utils.ui import (
     display_step_header, display_file_download_link, display_dataframe_with_download,
     create_tab_panels, display_json_viewer, add_vertical_space
 )
-from utils.imports import fix_dataframe_dtypes, logger
+from utils.imports import fix_dataframe_dtypes, logger, validate_dataframe_for_streamlit, is_package_available
 
 # Configure the page
 set_page_config(title="Data Management")
 
 # Display sidebar navigation
 sidebar_navigation()
+
+# Dependency checks
+if not is_package_available('pandas'):
+    st.error('Pandas is required for data management. Please install pandas.')
+    st.stop()
+if not is_package_available('matplotlib'):
+    st.warning('Matplotlib is not available. Some visualizations may not work.')
+if not is_package_available('seaborn'):
+    st.warning('Seaborn is not available. Some visualizations may not work.')
 
 # Main content
 page_header(
@@ -75,73 +84,75 @@ with dataset_tabs[0]:
                 df = load_dataset(temp_file_path)
                 # Fix DataFrame for display
                 df = fix_dataframe_dtypes(df)
-                st.success(f"Dataset loaded successfully with {df.shape[0]} rows and {df.shape[1]} columns")
-                
-                # Display data preview
-                st.markdown("#### Data Preview")
-                st.dataframe(df.head(10))
-                
-                # Dataset info
-                with st.expander("Dataset Information", expanded=False):
-                    st.markdown("##### Dataset Summary")
-                    st.write(df.describe())
-                    
-                    st.markdown("##### Column Types")
-                    st.write(pd.DataFrame(df.dtypes, columns=["Type"]))
-                    
-                    st.markdown("##### Missing Values")
-                    missing_data = pd.DataFrame({
-                        "Missing Values": df.isna().sum(),
-                        "Percentage": round(df.isna().sum() / len(df) * 100, 2)
-                    })
-                    st.write(missing_data)
-                
-                # Visualizations
-                with st.expander("Quick Visualizations", expanded=False):
-                    viz_type = st.selectbox(
-                        "Select visualization type",
-                        ["Data Types", "Correlation Matrix", "Distribution Plots", "Missing Values"],
-                    )
-                    
-                    if viz_type == "Data Types":
-                        # Data types pie chart
-                        fig, ax = plt.subplots(figsize=(8, 6))
-                        dtypes_counts = df.dtypes.value_counts()
-                        ax.pie(dtypes_counts, labels=dtypes_counts.index, autopct="%1.1f%%", startangle=90)
-                        ax.set_title("Data Types Distribution")
-                        st.pyplot(fig)
-                    
-                    elif viz_type == "Correlation Matrix":
-                        # Correlation heatmap
-                        numeric_df = df.select_dtypes(include=["int64", "float64"])
-                        if len(numeric_df.columns) > 1:
-                            fig, ax = plt.subplots(figsize=(10, 8))
-                            correlation = numeric_df.corr()
-                            mask = np.triu(np.ones_like(correlation, dtype=bool))
-                            sns.heatmap(correlation, mask=mask, annot=True, cmap="coolwarm", linewidths=0.5, ax=ax)
-                            ax.set_title("Feature Correlation")
-                            st.pyplot(fig)
-                        else:
-                            st.info("Not enough numeric columns for correlation analysis")
-                    
-                    elif viz_type == "Distribution Plots":
-                        # Select a column for distribution plot
-                        numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
-                        if numeric_cols:
-                            selected_col = st.selectbox("Select column", numeric_cols)
-                            fig, ax = plt.subplots(figsize=(10, 6))
-                            sns.histplot(df[selected_col].dropna(), kde=True, ax=ax)
-                            ax.set_title(f"Distribution of {selected_col}")
-                            st.pyplot(fig)
-                        else:
-                            st.info("No numeric columns available for distribution plots")
-                    
-                    elif viz_type == "Missing Values":
-                        # Missing values heatmap
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        sns.heatmap(df.isnull(), cbar=False, yticklabels=False, cmap="viridis", ax=ax)
-                        ax.set_title("Missing Values")
-                        st.pyplot(fig)
+                # Validate DataFrame before display
+                is_valid, msg, problematic = validate_dataframe_for_streamlit(df)
+                if not is_valid:
+                    st.error(f"Cannot display DataFrame: {msg}")
+                else:
+                    st.success(f"Dataset loaded successfully with {df.shape[0]} rows and {df.shape[1]} columns")
+                    # Display data preview
+                    st.markdown("#### Data Preview")
+                    st.dataframe(df.head(10))
+                    # Dataset info
+                    with st.expander("Dataset Information", expanded=False):
+                        st.markdown("##### Dataset Summary")
+                        st.write(df.describe())
+                        st.markdown("##### Column Types")
+                        st.write(pd.DataFrame(df.dtypes, columns=["Type"]))
+                        st.markdown("##### Missing Values")
+                        missing_data = pd.DataFrame({
+                            "Missing Values": df.isna().sum(),
+                            "Percentage": round(df.isna().sum() / len(df) * 100, 2)
+                        })
+                        st.write(missing_data)
+                    # Visualizations
+                    with st.expander("Quick Visualizations", expanded=False):
+                        viz_type = st.selectbox(
+                            "Select visualization type",
+                            ["Data Types", "Correlation Matrix", "Distribution Plots", "Missing Values"],
+                        )
+                        if viz_type == "Data Types":
+                            if is_package_available('matplotlib'):
+                                fig, ax = plt.subplots(figsize=(8, 6))
+                                dtypes_counts = df.dtypes.value_counts()
+                                ax.pie(dtypes_counts, labels=dtypes_counts.index, autopct="%1.1f%%", startangle=90)
+                                ax.set_title("Data Types Distribution")
+                                st.pyplot(fig)
+                            else:
+                                st.warning('Matplotlib is not available.')
+                        elif viz_type == "Correlation Matrix":
+                            numeric_df = df.select_dtypes(include=["int64", "float64"])
+                            if len(numeric_df.columns) > 1 and is_package_available('seaborn'):
+                                fig, ax = plt.subplots(figsize=(10, 8))
+                                correlation = numeric_df.corr()
+                                mask = np.triu(np.ones_like(correlation, dtype=bool))
+                                sns.heatmap(correlation, mask=mask, annot=True, cmap="coolwarm", linewidths=0.5, ax=ax)
+                                ax.set_title("Feature Correlation")
+                                st.pyplot(fig)
+                            elif not is_package_available('seaborn'):
+                                st.warning('Seaborn is not available.')
+                            else:
+                                st.info("Not enough numeric columns for correlation analysis")
+                        elif viz_type == "Distribution Plots":
+                            numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
+                            if numeric_cols and is_package_available('seaborn'):
+                                selected_col = st.selectbox("Select column", numeric_cols)
+                                fig, ax = plt.subplots(figsize=(10, 6))
+                                sns.histplot(df[selected_col].dropna(), kde=True, ax=ax)
+                                ax.set_title(f"Distribution of {selected_col}")
+                                st.pyplot(fig)
+                            elif not is_package_available('seaborn'):
+                                st.warning('Seaborn is not available.')
+                            else:
+                                st.info("No numeric columns available for distribution plots")
+                        elif viz_type == "Missing Values":
+                            if is_package_available('seaborn'):
+                                fig, ax = plt.subplots(figsize=(10, 6))
+                                sns.heatmap(df.isnull(), cbar=False, yticklabels=False, cmap="viridis", ax=ax)
+                                ax.set_title("Missing Values")
+                                st.pyplot(fig)
+                            else:
+                                st.warning('Seaborn is not available.')
                 
                 # Save dataset form
                 st.markdown("### Save Dataset")

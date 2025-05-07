@@ -16,7 +16,7 @@ from utils.ui import (
     set_page_config, page_header, sidebar_navigation, display_info_box,
     create_tab_panels, add_vertical_space
 )
-from utils.imports import is_package_available
+from utils.imports import is_package_available, fix_dataframe_dtypes, validate_dataframe_for_streamlit
 
 # Configure the page
 set_page_config(title="Computer Vision")
@@ -35,6 +35,13 @@ page_header(
 opencv_available = is_package_available("cv2")
 sklearn_available = is_package_available("sklearn")
 transformers_available = is_package_available("transformers")
+
+# Dependency checks
+if not is_package_available('pandas'):
+    st.error('Pandas is required for computer vision features. Please install pandas.')
+    st.stop()
+if not is_package_available('numpy'):
+    st.warning('NumPy is not available. Some features may not work.')
 
 # Create tabs
 cv_tabs = create_tab_panels("Image Analysis", "Image Processing", "Image Classification", "Object Detection")
@@ -234,7 +241,11 @@ with cv_tabs[0]:
             
             # Convert channel stats to DataFrame for display
             channel_df = pd.DataFrame(image_info['channel_stats'])
-            st.dataframe(channel_df)
+            is_valid, msg, problematic = validate_dataframe_for_streamlit(channel_df)
+            if not is_valid:
+                st.error(f"Cannot display DataFrame: {msg}")
+            else:
+                st.dataframe(channel_df)
             
             # Histogram
             st.markdown("#### Pixel Histogram")
@@ -439,39 +450,43 @@ with cv_tabs[2]:
                         results_df.columns = ["Label", "Confidence"]
                         results_df["Confidence"] = results_df["Confidence"].apply(lambda x: f"{x:.2%}")
                         
-                        st.dataframe(results_df)
-                        
-                        # Display top result
-                        top_label = results[0]["label"]
-                        top_score = results[0]["score"]
-                        
-                        st.success(f"Top prediction: **{top_label}** with {top_score:.2%} confidence")
-                        
-                        # Visualization of top 5 results
-                        fig, ax = plt.subplots(figsize=(10, 5))
-                        
-                        # Limit to top 5
-                        plot_data = results[:5]
-                        labels = [result["label"] for result in plot_data]
-                        scores = [result["score"] for result in plot_data]
-                        
-                        # Create horizontal bar chart
-                        bars = ax.barh([label.split(',')[0] for label in labels], scores)
-                        
-                        # Add percentage labels
-                        for i, bar in enumerate(bars):
-                            ax.text(
-                                bar.get_width() + 0.01,
-                                bar.get_y() + bar.get_height()/2,
-                                f"{scores[i]:.2%}",
-                                va='center'
-                            )
-                        
-                        ax.set_xlim(0, 1)
-                        ax.set_title("Top 5 Predictions")
-                        ax.set_xlabel("Confidence")
-                        
-                        st.pyplot(fig)
+                        is_valid, msg, problematic = validate_dataframe_for_streamlit(results_df)
+                        if not is_valid:
+                            st.error(f"Cannot display DataFrame: {msg}")
+                        else:
+                            st.dataframe(results_df)
+                            
+                            # Display top result
+                            top_label = results[0]["label"]
+                            top_score = results[0]["score"]
+                            
+                            st.success(f"Top prediction: **{top_label}** with {top_score:.2%} confidence")
+                            
+                            # Visualization of top 5 results
+                            fig, ax = plt.subplots(figsize=(10, 5))
+                            
+                            # Limit to top 5
+                            plot_data = results[:5]
+                            labels = [result["label"] for result in plot_data]
+                            scores = [result["score"] for result in plot_data]
+                            
+                            # Create horizontal bar chart
+                            bars = ax.barh([label.split(',')[0] for label in labels], scores)
+                            
+                            # Add percentage labels
+                            for i, bar in enumerate(bars):
+                                ax.text(
+                                    bar.get_width() + 0.01,
+                                    bar.get_y() + bar.get_height()/2,
+                                    f"{scores[i]:.2%}",
+                                    va='center'
+                                )
+                            
+                            ax.set_xlim(0, 1)
+                            ax.set_title("Top 5 Predictions")
+                            ax.set_xlabel("Confidence")
+                            
+                            st.pyplot(fig)
             
             except Exception as e:
                 st.error(f"Error during image classification: {str(e)}")
@@ -580,8 +595,12 @@ with cv_tabs[3]:
                                 })
                             
                             detection_df = pd.DataFrame(detection_data)
-                            st.dataframe(detection_df)
-                            
+                            is_valid, msg, problematic = validate_dataframe_for_streamlit(detection_df)
+                            if not is_valid:
+                                st.error(f"Cannot display DataFrame: {msg}")
+                            else:
+                                st.dataframe(detection_df)
+                                
                             st.success(f"Detected {len(results)} objects in the image.")
                         else:
                             st.info("No objects detected with the current confidence threshold. Try lowering the threshold.")

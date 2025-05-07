@@ -21,13 +21,24 @@ from utils.ui import (
     set_page_config, page_header, sidebar_navigation, display_info_box,
     create_tab_panels, display_code_block, add_vertical_space
 )
-from utils.imports import is_package_available, get_optional_package, logger, fix_dataframe_dtypes
+from utils.imports import is_package_available, get_optional_package, logger, fix_dataframe_dtypes, validate_dataframe_for_streamlit
 
 # Optional imports
 PLOTLY_AVAILABLE = is_package_available('plotly')
 if PLOTLY_AVAILABLE:
     import plotly.express as px
     import plotly.graph_objects as go
+
+# Dependency checks
+if not is_package_available('pandas'):
+    st.error('Pandas is required for dashboard visualizations. Please install pandas.')
+    st.stop()
+if not is_package_available('matplotlib'):
+    st.warning('Matplotlib is not available. Some visualizations may not work.')
+if not is_package_available('seaborn'):
+    st.warning('Seaborn is not available. Some visualizations may not work.')
+if not is_package_available('plotly'):
+    st.warning('Plotly is not available. Interactive visualizations may not work.')
 
 # Helper function for creating visualizations with fallback to matplotlib if plotly is not available
 def create_line_chart(df, x_col, y_col, title, x_label=None, y_label=None):

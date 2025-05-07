@@ -17,7 +17,7 @@ from utils.ui import (
     create_tab_panels, add_vertical_space
 )
 from utils.data import get_dataset_list, get_dataset_info, load_dataset, get_dataset_by_id
-from utils.imports import is_package_available
+from utils.imports import is_package_available, fix_dataframe_dtypes, validate_dataframe_for_streamlit
 
 # Configure the page
 set_page_config(title="Natural Language Analysis")
@@ -36,6 +36,13 @@ page_header(
 nltk_available = is_package_available("nltk")
 spacy_available = is_package_available("spacy")
 transformers_available = is_package_available("transformers")
+
+# Dependency checks
+if not is_package_available('pandas'):
+    st.error('Pandas is required for NLP analysis. Please install pandas.')
+    st.stop()
+if not is_package_available('numpy'):
+    st.warning('NumPy is not available. Some features may not work.')
 
 # Simple NLP functions - Basic analysis that doesn't require external libraries
 def count_words(text):

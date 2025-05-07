@@ -21,12 +21,26 @@ from utils.ui import (
     set_page_config, page_header, sidebar_navigation, display_info_box,
     create_tab_panels, add_vertical_space
 )
+from utils.imports import is_package_available, logger, fix_dataframe_dtypes, validate_dataframe_for_streamlit
 
 # Configure the page
 set_page_config(title="Visualization")
 
 # Display sidebar navigation
 sidebar_navigation()
+
+# Dependency checks
+if not is_package_available('pandas'):
+    st.error('Pandas is required for visualization. Please install pandas.')
+    st.stop()
+if not is_package_available('matplotlib'):
+    st.warning('Matplotlib is not available. Some visualizations may not work.')
+if not is_package_available('seaborn'):
+    st.warning('Seaborn is not available. Some visualizations may not work.')
+if not is_package_available('plotly'):
+    st.warning('Plotly is not available. Interactive visualizations may not work.')
+if not is_package_available('altair'):
+    st.warning('Altair is not available. Some visualizations may not work.')
 
 # Main content
 page_header(
@@ -258,106 +272,111 @@ else:
         if dataset_info and dataset_info["data"] is not None:
             df = dataset_info["data"]
             
-            # Display dataset preview
-            with st.expander("Dataset Preview", expanded=False):
-                st.dataframe(df.head())
-            
-            # Visualization selection
-            visualization_types = [
-                "Scatter Plot", "Line Chart", "Bar Chart", "Histogram", 
-                "Box Plot", "Heatmap", "Pie Chart", "3D Scatter",
-                "Dimensionality Reduction"
-            ]
-            
-            selected_viz = st.selectbox("Select Visualization Type", visualization_types)
-            
-            # Visualization settings based on type
-            settings = {}
-            
-            # Columns selector
-            numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
-            categorical_cols = df.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
-            all_cols = df.columns.tolist()
-            
-            st.markdown("#### Configure Visualization")
-            
-            if selected_viz == "Scatter Plot":
-                col1, col2 = st.columns(2)
-                settings["x_column"] = col1.selectbox("X-axis", numeric_cols, key="scatter_x")
-                settings["y_column"] = col2.selectbox("Y-axis", numeric_cols, key="scatter_y", index=min(1, len(numeric_cols)-1))
-                settings["color_column"] = st.selectbox("Color by", ["None"] + all_cols, key="scatter_color")
-            
-            elif selected_viz == "Line Chart":
-                col1, col2 = st.columns(2)
-                settings["x_column"] = col1.selectbox("X-axis", numeric_cols, key="line_x")
-                settings["y_column"] = col2.selectbox("Y-axis", numeric_cols, key="line_y", index=min(1, len(numeric_cols)-1))
-                settings["group_column"] = st.selectbox("Group by", ["None"] + categorical_cols, key="line_group")
-            
-            elif selected_viz == "Bar Chart":
-                col1, col2 = st.columns(2)
-                settings["x_column"] = col1.selectbox("X-axis", all_cols, key="bar_x")
-                settings["y_column"] = col2.selectbox("Y-axis", numeric_cols, key="bar_y")
-                settings["group_column"] = st.selectbox("Group by", ["None"] + categorical_cols, key="bar_group")
-                settings["bar_mode"] = st.radio("Bar Mode", ["Group", "Stack"], horizontal=True)
-            
-            elif selected_viz == "Histogram":
-                col1, col2 = st.columns(2)
-                settings["column"] = col1.selectbox("Column", numeric_cols, key="hist_col")
-                settings["bins"] = col2.slider("Number of Bins", 5, 100, 20)
-            
-            elif selected_viz == "Box Plot":
-                col1, col2 = st.columns(2)
-                settings["x_column"] = col1.selectbox("X-axis (Category)", categorical_cols if categorical_cols else all_cols, key="box_x")
-                settings["y_column"] = col2.selectbox("Y-axis (Value)", numeric_cols, key="box_y")
-            
-            elif selected_viz == "Heatmap":
-                st.info("Heatmap will show correlations between all numeric columns.")
-            
-            elif selected_viz == "Pie Chart":
-                settings["column"] = st.selectbox("Column", categorical_cols if categorical_cols else all_cols, key="pie_col")
-            
-            elif selected_viz == "3D Scatter":
-                col1, col2, col3 = st.columns(3)
-                settings["x_column"] = col1.selectbox("X-axis", numeric_cols, key="3d_x")
-                settings["y_column"] = col2.selectbox("Y-axis", numeric_cols, key="3d_y", index=min(1, len(numeric_cols)-1))
-                z_index = min(2, len(numeric_cols)-1) if len(numeric_cols) > 2 else 0
-                settings["z_column"] = col3.selectbox("Z-axis", numeric_cols, key="3d_z", index=z_index)
-                settings["color_column"] = st.selectbox("Color by", ["None"] + all_cols, key="3d_color")
-            
-            elif selected_viz == "Dimensionality Reduction":
-                col1, col2 = st.columns(2)
-                settings["method"] = col1.selectbox("Method", ["PCA", "t-SNE"], key="dr_method")
-                settings["color_column"] = col2.selectbox("Color by", ["None"] + all_cols, key="dr_color")
-            
-            # Generate visualization
-            if st.button("Generate Visualization"):
-                with st.spinner("Creating visualization..."):
-                    fig = create_visualization(df, selected_viz, settings)
-                    
-                    if fig is not None:
-                        st.plotly_chart(fig, use_container_width=True)
+            # Before any DataFrame display or visualization, validate the DataFrame
+            is_valid, msg, problematic = validate_dataframe_for_streamlit(df)
+            if not is_valid:
+                st.error(f"Cannot display DataFrame: {msg}")
+            else:
+                # Display dataset preview
+                with st.expander("Dataset Preview", expanded=False):
+                    st.dataframe(df.head())
+                
+                # Visualization selection
+                visualization_types = [
+                    "Scatter Plot", "Line Chart", "Bar Chart", "Histogram", 
+                    "Box Plot", "Heatmap", "Pie Chart", "3D Scatter",
+                    "Dimensionality Reduction"
+                ]
+                
+                selected_viz = st.selectbox("Select Visualization Type", visualization_types)
+                
+                # Visualization settings based on type
+                settings = {}
+                
+                # Columns selector
+                numeric_cols = df.select_dtypes(include=["int64", "float64"]).columns.tolist()
+                categorical_cols = df.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
+                all_cols = df.columns.tolist()
+                
+                st.markdown("#### Configure Visualization")
+                
+                if selected_viz == "Scatter Plot":
+                    col1, col2 = st.columns(2)
+                    settings["x_column"] = col1.selectbox("X-axis", numeric_cols, key="scatter_x")
+                    settings["y_column"] = col2.selectbox("Y-axis", numeric_cols, key="scatter_y", index=min(1, len(numeric_cols)-1))
+                    settings["color_column"] = st.selectbox("Color by", ["None"] + all_cols, key="scatter_color")
+                
+                elif selected_viz == "Line Chart":
+                    col1, col2 = st.columns(2)
+                    settings["x_column"] = col1.selectbox("X-axis", numeric_cols, key="line_x")
+                    settings["y_column"] = col2.selectbox("Y-axis", numeric_cols, key="line_y", index=min(1, len(numeric_cols)-1))
+                    settings["group_column"] = st.selectbox("Group by", ["None"] + categorical_cols, key="line_group")
+                
+                elif selected_viz == "Bar Chart":
+                    col1, col2 = st.columns(2)
+                    settings["x_column"] = col1.selectbox("X-axis", all_cols, key="bar_x")
+                    settings["y_column"] = col2.selectbox("Y-axis", numeric_cols, key="bar_y")
+                    settings["group_column"] = st.selectbox("Group by", ["None"] + categorical_cols, key="bar_group")
+                    settings["bar_mode"] = st.radio("Bar Mode", ["Group", "Stack"], horizontal=True)
+                
+                elif selected_viz == "Histogram":
+                    col1, col2 = st.columns(2)
+                    settings["column"] = col1.selectbox("Column", numeric_cols, key="hist_col")
+                    settings["bins"] = col2.slider("Number of Bins", 5, 100, 20)
+                
+                elif selected_viz == "Box Plot":
+                    col1, col2 = st.columns(2)
+                    settings["x_column"] = col1.selectbox("X-axis (Category)", categorical_cols if categorical_cols else all_cols, key="box_x")
+                    settings["y_column"] = col2.selectbox("Y-axis (Value)", numeric_cols, key="box_y")
+                
+                elif selected_viz == "Heatmap":
+                    st.info("Heatmap will show correlations between all numeric columns.")
+                
+                elif selected_viz == "Pie Chart":
+                    settings["column"] = st.selectbox("Column", categorical_cols if categorical_cols else all_cols, key="pie_col")
+                
+                elif selected_viz == "3D Scatter":
+                    col1, col2, col3 = st.columns(3)
+                    settings["x_column"] = col1.selectbox("X-axis", numeric_cols, key="3d_x")
+                    settings["y_column"] = col2.selectbox("Y-axis", numeric_cols, key="3d_y", index=min(1, len(numeric_cols)-1))
+                    z_index = min(2, len(numeric_cols)-1) if len(numeric_cols) > 2 else 0
+                    settings["z_column"] = col3.selectbox("Z-axis", numeric_cols, key="3d_z", index=z_index)
+                    settings["color_column"] = st.selectbox("Color by", ["None"] + all_cols, key="3d_color")
+                
+                elif selected_viz == "Dimensionality Reduction":
+                    col1, col2 = st.columns(2)
+                    settings["method"] = col1.selectbox("Method", ["PCA", "t-SNE"], key="dr_method")
+                    settings["color_column"] = col2.selectbox("Color by", ["None"] + all_cols, key="dr_color")
+                
+                # Generate visualization
+                if st.button("Generate Visualization"):
+                    with st.spinner("Creating visualization..."):
+                        fig = create_visualization(df, selected_viz, settings)
                         
-                        # Export options
-                        st.markdown("#### Export Options")
-                        col1, col2 = st.columns(2)
-                        
-                        # HTML export
-                        html_bytes = fig.to_html(include_plotlyjs="cdn").encode()
-                        col1.download_button(
-                            label="Download as HTML",
-                            data=html_bytes,
-                            file_name=f"{selected_dataset_name}_{selected_viz.replace(' ', '_')}.html",
-                            mime="text/html"
-                        )
-                        
-                        # PNG export
-                        img_bytes = fig.to_image(format="png", width=1200, height=800)
-                        col2.download_button(
-                            label="Download as PNG",
-                            data=img_bytes,
-                            file_name=f"{selected_dataset_name}_{selected_viz.replace(' ', '_')}.png",
-                            mime="image/png"
-                        )
+                        if fig is not None:
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Export options
+                            st.markdown("#### Export Options")
+                            col1, col2 = st.columns(2)
+                            
+                            # HTML export
+                            html_bytes = fig.to_html(include_plotlyjs="cdn").encode()
+                            col1.download_button(
+                                label="Download as HTML",
+                                data=html_bytes,
+                                file_name=f"{selected_dataset_name}_{selected_viz.replace(' ', '_')}.html",
+                                mime="text/html"
+                            )
+                            
+                            # PNG export
+                            img_bytes = fig.to_image(format="png", width=1200, height=800)
+                            col2.download_button(
+                                label="Download as PNG",
+                                data=img_bytes,
+                                file_name=f"{selected_dataset_name}_{selected_viz.replace(' ', '_')}.png",
+                                mime="image/png"
+                            )
         else:
             st.error("Error loading dataset data. The dataset might be corrupted.")
 

@@ -20,12 +20,20 @@ from utils.ui import (
     set_page_config, page_header, sidebar_navigation, display_info_box,
     create_tab_panels, display_code_block, add_vertical_space
 )
+from utils.imports import is_package_available, logger, fix_dataframe_dtypes, validate_dataframe_for_streamlit
 
 # Configure the page
 set_page_config(title="Deployment")
 
 # Display sidebar navigation
 sidebar_navigation()
+
+# Dependency checks
+if not is_package_available('pandas'):
+    st.error('Pandas is required for deployment features. Please install pandas.')
+    st.stop()
+if not is_package_available('numpy'):
+    st.warning('NumPy is not available. Some deployment features may not work.')
 
 # Main content
 page_header(
@@ -547,4 +555,14 @@ with st.sidebar:
         5. **Testing**: Thoroughly test your deployment before releasing to production
         
         6. **Documentation**: Provide clear documentation for API users
-        """) 
+        """)
+
+# Before any DataFrame display or visualization, validate the DataFrame
+# Example for main workflow (add similar checks before each st.dataframe, st.table, or visualization):
+#
+# is_valid, msg, problematic = validate_dataframe_for_streamlit(df)
+# if not is_valid:
+#     st.error(f"Cannot display DataFrame: {msg}")
+# else:
+#     st.dataframe(df)
+#     # or create visualization 

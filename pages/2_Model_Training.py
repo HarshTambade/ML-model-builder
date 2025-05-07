@@ -26,7 +26,7 @@ from utils.ui import (
     set_page_config, page_header, sidebar_navigation, display_info_box,
     create_tab_panels, add_vertical_space
 )
-from utils.imports import is_package_available, logger, fix_dataframe_dtypes
+from utils.imports import is_package_available, logger, fix_dataframe_dtypes, validate_dataframe_for_streamlit
 
 # Configure the page
 set_page_config(title="Model Training")
@@ -43,6 +43,15 @@ page_header(
 
 # Create tabs for the model training workflow
 training_tabs = create_tab_panels("Select Dataset", "Configure Model", "Training Results")
+
+# Dependency checks
+if not is_package_available('pandas'):
+    st.error('Pandas is required for model training. Please install pandas.')
+    st.stop()
+if not is_package_available('matplotlib'):
+    st.warning('Matplotlib is not available. Some visualizations may not work.')
+if not is_package_available('seaborn'):
+    st.warning('Seaborn is not available. Some visualizations may not work.')
 
 # Tab 1: Select Dataset
 with training_tabs[0]:
@@ -78,46 +87,51 @@ with training_tabs[0]:
                     df = pd.read_csv(uploaded_file)
                     # Fix DataFrame for display
                     df = fix_dataframe_dtypes(df)
-                    st.success(f"Dataset loaded successfully with {df.shape[0]} rows and {df.shape[1]} columns")
-                    
-                    # Display data preview
-                    st.markdown("#### Data Preview")
-                    st.dataframe(df.head(10))
-                    
-                    # Basic dataset info
-                    st.markdown("#### Dataset Information")
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("Rows", df.shape[0])
-                    col2.metric("Columns", df.shape[1])
-                    col3.metric("Size (KB)", round(df.memory_usage(deep=True).sum() / 1024, 2))
-                    
-                    # Target column selection
-                    st.markdown("### Select Target Variable")
-                    target_column = st.selectbox(
-                        "Select the target column for prediction",
-                        options=df.columns.tolist(),
-                        index=len(df.columns)-1  # Default to last column
-                    )
-                    
-                    # Create temporary dataset info structure
-                    temp_dataset_info = {
-                        "data": df,
-                        "metadata": {
-                            "name": os.path.splitext(uploaded_file.name)[0],
-                            "description": "Temporary uploaded dataset",
-                            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "type": "uploaded_temp"
-                        }
-                    }
-                    
-                    # Store uploaded dataset in session state
-                    if st.button("Use This Dataset"):
-                        st.session_state["selected_dataset"] = temp_dataset_info
-                        st.session_state["target_column"] = target_column
+                    # Validate DataFrame before display
+                    is_valid, msg, problematic = validate_dataframe_for_streamlit(df)
+                    if not is_valid:
+                        st.error(f"Cannot display DataFrame: {msg}")
+                    else:
+                        st.success(f"Dataset loaded successfully with {df.shape[0]} rows and {df.shape[1]} columns")
                         
-                        # Switch to the next tab
-                        st.success(f"Uploaded dataset selected for training!")
-                        st.info("Now configure your model in the next tab.")
+                        # Display data preview
+                        st.markdown("#### Data Preview")
+                        st.dataframe(df.head(10))
+                        
+                        # Basic dataset info
+                        st.markdown("#### Dataset Information")
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric("Rows", df.shape[0])
+                        col2.metric("Columns", df.shape[1])
+                        col3.metric("Size (KB)", round(df.memory_usage(deep=True).sum() / 1024, 2))
+                        
+                        # Target column selection
+                        st.markdown("### Select Target Variable")
+                        target_column = st.selectbox(
+                            "Select the target column for prediction",
+                            options=df.columns.tolist(),
+                            index=len(df.columns)-1  # Default to last column
+                        )
+                        
+                        # Create temporary dataset info structure
+                        temp_dataset_info = {
+                            "data": df,
+                            "metadata": {
+                                "name": os.path.splitext(uploaded_file.name)[0],
+                                "description": "Temporary uploaded dataset",
+                                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "type": "uploaded_temp"
+                            }
+                        }
+                        
+                        # Store uploaded dataset in session state
+                        if st.button("Use This Dataset"):
+                            st.session_state["selected_dataset"] = temp_dataset_info
+                            st.session_state["target_column"] = target_column
+                            
+                            # Switch to the next tab
+                            st.success(f"Uploaded dataset selected for training!")
+                            st.info("Now configure your model in the next tab.")
                 
                 except Exception as e:
                     st.error(f"Error loading dataset: {str(e)}")
@@ -173,34 +187,38 @@ with training_tabs[0]:
                     df = dataset_info["data"]
                     # Fix DataFrame for display
                     df = fix_dataframe_dtypes(df)
-                    
-                    # Display dataset preview
-                    st.markdown("#### Dataset Preview")
-                    st.dataframe(df.head())
-                    
-                    # Basic dataset info
-                    st.markdown("#### Dataset Information")
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("Rows", df.shape[0])
-                    col2.metric("Columns", df.shape[1])
-                    col3.metric("Size (KB)", round(df.memory_usage(deep=True).sum() / 1024, 2))
-                    
-                    # Target column selection
-                    st.markdown("### Select Target Variable")
-                    target_column = st.selectbox(
-                        "Select the target column for prediction",
-                        options=df.columns.tolist(),
-                        index=len(df.columns)-1  # Default to last column
-                    )
-                    
-                    # Store selected dataset in session state
-                    if st.button("Use This Dataset"):
-                        st.session_state["selected_dataset"] = dataset_info
-                        st.session_state["target_column"] = target_column
+                    # Validate DataFrame before display
+                    is_valid, msg, problematic = validate_dataframe_for_streamlit(df)
+                    if not is_valid:
+                        st.error(f"Cannot display DataFrame: {msg}")
+                    else:
+                        # Display dataset preview
+                        st.markdown("#### Dataset Preview")
+                        st.dataframe(df.head())
                         
-                        # Switch to the next tab
-                        st.success(f"Dataset '{selected_dataset_name}' selected for training!")
-                        st.info("Now configure your model in the next tab.")
+                        # Basic dataset info
+                        st.markdown("#### Dataset Information")
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric("Rows", df.shape[0])
+                        col2.metric("Columns", df.shape[1])
+                        col3.metric("Size (KB)", round(df.memory_usage(deep=True).sum() / 1024, 2))
+                        
+                        # Target column selection
+                        st.markdown("### Select Target Variable")
+                        target_column = st.selectbox(
+                            "Select the target column for prediction",
+                            options=df.columns.tolist(),
+                            index=len(df.columns)-1  # Default to last column
+                        )
+                        
+                        # Store selected dataset in session state
+                        if st.button("Use This Dataset"):
+                            st.session_state["selected_dataset"] = dataset_info
+                            st.session_state["target_column"] = target_column
+                            
+                            # Switch to the next tab
+                            st.success(f"Dataset '{selected_dataset_name}' selected for training!")
+                            st.info("Now configure your model in the next tab.")
                 else:
                     st.error("Error loading dataset data. The dataset might be corrupted.")
                     

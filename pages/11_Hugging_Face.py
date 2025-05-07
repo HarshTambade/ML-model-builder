@@ -19,13 +19,20 @@ from utils.huggingface import (
     check_hf_availability, get_hf_models, run_inference_api, load_hf_model,
     create_hf_pipeline, save_hf_model_info, display_model_card
 )
-from utils.imports import is_package_available, logger
+from utils.imports import is_package_available, logger, fix_dataframe_dtypes, validate_dataframe_for_streamlit
 
 # Configure the page
 set_page_config(title="Hugging Face")
 
 # Display sidebar navigation
 sidebar_navigation()
+
+# Dependency checks
+if not is_package_available('pandas'):
+    st.error('Pandas is required for Hugging Face integration. Please install pandas.')
+    st.stop()
+if not is_package_available('numpy'):
+    st.warning('NumPy is not available. Some features may not work.')
 
 # Main content
 page_header(
@@ -176,7 +183,11 @@ with hf_tabs[0]:
             for model in models
         ])
         
-        st.dataframe(models_df)
+        is_valid, msg, problematic = validate_dataframe_for_streamlit(models_df)
+        if not is_valid:
+            st.error(f"Cannot display DataFrame: {msg}")
+        else:
+            st.dataframe(models_df)
         
         # Model selection
         selected_model_id = st.selectbox(
@@ -425,7 +436,11 @@ with hf_tabs[2]:
                     
                     # Display results
                     st.markdown("### Classification Results")
-                    st.dataframe(results_df)
+                    is_valid, msg, problematic = validate_dataframe_for_streamlit(results_df)
+                    if not is_valid:
+                        st.error(f"Cannot display DataFrame: {msg}")
+                    else:
+                        st.dataframe(results_df)
                     
                     # Visualize results
                     if not results_df.empty and len(results_df) > 1:
