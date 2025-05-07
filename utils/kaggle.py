@@ -94,74 +94,71 @@ def download_kaggle_dataset(dataset_ref, path=None, unzip=True):
     """Download a dataset from Kaggle directly using requests to avoid API issues."""
     if not KAGGLE_AVAILABLE:
         return {"error": "Kaggle API not available. Install the kaggle package with pip install kaggle."}
-    
     try:
         # Set download path
         if path is None:
             path = UPLOADS_DIR / "kaggle"
-        
         # Ensure path exists
         os.makedirs(path, exist_ok=True)
-        
-        # Print dataset reference for debugging
         logger.info(f"Trying direct download for dataset: {dataset_ref}")
-        
         # Use requests directly
         auth = (KAGGLE_USERNAME, KAGGLE_API_KEY)
         url = f"https://www.kaggle.com/api/v1/datasets/download/{dataset_ref}"
-        
         response = requests.get(url, auth=auth, stream=True)
-        
+        if response.status_code == 401:
+            return {"error": "Unauthorized. Please check your Kaggle API credentials."}
+        if response.status_code == 404:
+            return {"error": f"Dataset '{dataset_ref}' not found on Kaggle."}
         if response.status_code != 200:
             return {"error": f"Failed to download dataset: HTTP {response.status_code} - {response.text}"}
-        
         # Get the filename from content disposition header
         content_disposition = response.headers.get('content-disposition', '')
         filename = 'dataset.zip'
         if 'filename=' in content_disposition:
             filename = content_disposition.split('filename=')[1].strip('"\'')
-        
         zip_path = path / filename
-        
         # Download the file
-        with open(zip_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        
+        try:
+            with open(zip_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        except PermissionError:
+            return {"error": f"Permission denied when writing to '{zip_path}'. Please check write permissions."}
+        except Exception as e:
+            return {"error": f"Error saving downloaded file: {str(e)}"}
         # Unzip if requested
         if unzip:
-            import zipfile
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(path)
-            
-            # List extracted files
-            files = list(path.glob("*.*"))
-            
-            if not files:
-                return {"error": "No files found after extraction. The dataset may be empty."}
+            try:
+                import zipfile
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(path)
+                files = list(path.glob("*.*"))
+                if not files:
+                    return {"error": "No files found after extraction. The dataset may be empty or corrupted."}
+            except zipfile.BadZipFile:
+                return {"error": "Downloaded file is not a valid zip archive. The dataset may be corrupted."}
+            except Exception as e:
+                return {"error": f"Error extracting zip file: {str(e)}"}
         else:
             files = [zip_path]
-        
         return {
             "dataset_ref": dataset_ref,
             "files": [str(f) for f in files],
             "download_path": str(path)
         }
-    
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Network error downloading dataset: {str(e)}")
+        return {"error": f"Network error downloading dataset: {str(e)}"}
     except Exception as e:
         logger.error(f"Error downloading dataset with direct method: {str(e)}")
-        
         # Fall back to simple sample data if everything else fails
         try:
-            # Create a simple CSV with sample data
             sample_file = path / "sample_data.csv"
             with open(sample_file, 'w') as f:
                 f.write("id,feature1,feature2,target\n")
                 for i in range(100):
                     f.write(f"{i},{i*2},{i*3},{i*4}\n")
-            
             logger.info(f"Created sample data file at {sample_file}")
-            
             return {
                 "dataset_ref": "sample_data",
                 "files": [str(sample_file)],
@@ -174,83 +171,65 @@ def download_kaggle_dataset(dataset_ref, path=None, unzip=True):
 
 def load_kaggle_dataset(dataset_ref, file_name=None):
     """Download and load a Kaggle dataset."""
-    try:
-        # Download the dataset
-        result = download_kaggle_dataset(dataset_ref)
-        
-        if "error" in result:
-            return result
-        
-        dataset_dir = result["download_path"]
-        
-        # List all CSV files in the dataset
-        csv_files = []
+    result = download_kaggle_dataset(dataset_ref)
+    if "error" in result:
+        return result
+    dataset_dir = result["download_path"]
+    # List all CSV files in the dataset
+    csv_files = []
+    for root, _, files in os.walk(dataset_dir):
+        for file in files:
+            if file.endswith('.csv'):
+                csv_files.append(os.path.join(root, file))
+    if not csv_files:
+        available_files = []
         for root, _, files in os.walk(dataset_dir):
             for file in files:
-                if file.endswith('.csv'):
-                    csv_files.append(os.path.join(root, file))
-        
-        if not csv_files:
-            available_files = []
-            for root, _, files in os.walk(dataset_dir):
-                for file in files:
-                    available_files.append(os.path.join(root, file))
-            
+                available_files.append(os.path.join(root, file))
+        return {
+            "error": "No CSV files found in the dataset. The dataset may not contain tabular data.",
+            "available_files": [os.path.basename(f) for f in available_files],
+            "message": "Try importing a specific file by name if the dataset contains non-CSV files."
+        }
+    # If file_name is specified, look for that specific file
+    if file_name:
+        matching_files = [f for f in csv_files if os.path.basename(f) == file_name]
+        if not matching_files:
             return {
-                "error": "No CSV files found in the dataset", 
-                "available_files": [os.path.basename(f) for f in available_files],
-                "message": "Try importing a specific file by name if the dataset contains non-CSV files."
+                "error": f"File '{file_name}' not found in the dataset.",
+                "available_files": [os.path.basename(f) for f in csv_files],
+                "message": "Please select one of the available CSV files."
             }
-        
-        # If file_name is specified, look for that specific file
-        if file_name:
-            matching_files = [f for f in csv_files if os.path.basename(f) == file_name]
-            if not matching_files:
-                return {
-                    "error": f"File '{file_name}' not found", 
-                    "available_files": [os.path.basename(f) for f in csv_files],
-                    "message": "Please select one of the available CSV files."
-                }
-            csv_file = matching_files[0]
-        else:
-            # Otherwise, use the first CSV file found
-            csv_file = csv_files[0]
-        
+        csv_file = matching_files[0]
+    else:
+        csv_file = csv_files[0]
+    try:
+        # Load the CSV file with proper error handling for common issues
         try:
-            # Load the CSV file with proper error handling for common issues
-            try:
-                df = pd.read_csv(csv_file, low_memory=False)
-            except pd.errors.ParserError:
-                # Try with error handling enabled
-                df = pd.read_csv(csv_file, error_bad_lines=False, warn_bad_lines=True)
-            except UnicodeDecodeError:
-                # Try different encodings
-                for encoding in ['utf-8', 'latin1', 'ISO-8859-1', 'cp1252']:
-                    try:
-                        df = pd.read_csv(csv_file, encoding=encoding)
-                        break
-                    except UnicodeDecodeError:
-                        continue
-                else:
-                    return {"error": f"Failed to decode CSV file with any encoding"}
-            
-            # Fix DataFrame dtypes for ArrowInvalid serialization errors
-            df = fix_dataframe_dtypes(df)
-            
-            # Return the loaded data
-            return {
-                "data": df,
-                "file": os.path.basename(csv_file),
-                "file_path": csv_file,
-                "shape": df.shape,
-                "columns": list(df.columns)
-            }
-        except Exception as e:
-            logger.error(f"Error loading CSV file: {str(e)}")
-            return {"error": f"Error loading CSV file: {str(e)}"}
+            df = pd.read_csv(csv_file, low_memory=False)
+        except pd.errors.ParserError as e:
+            return {"error": f"CSV parsing error: {str(e)}. The file may be corrupted or not a valid CSV."}
+        except UnicodeDecodeError:
+            # Try different encodings
+            for encoding in ['utf-8', 'latin1', 'ISO-8859-1', 'cp1252']:
+                try:
+                    df = pd.read_csv(csv_file, encoding=encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            else:
+                return {"error": f"Failed to decode CSV file with any encoding."}
+        # Fix DataFrame dtypes for ArrowInvalid serialization errors
+        df = fix_dataframe_dtypes(df)
+        return {
+            "data": df,
+            "file": os.path.basename(csv_file),
+            "file_path": csv_file,
+            "shape": df.shape,
+            "columns": list(df.columns)
+        }
     except Exception as e:
-        logger.error(f"Error in load_kaggle_dataset: {str(e)}")
-        return {"error": f"Failed to load Kaggle dataset: {str(e)}"}
+        return {"error": f"Error loading CSV file: {str(e)}"}
 
 def import_kaggle_dataset(dataset_ref, file_name=None, dataset_name=None, description=None):
     """Import a Kaggle dataset into the platform."""
