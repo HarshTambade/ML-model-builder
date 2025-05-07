@@ -216,7 +216,7 @@ with cv_tabs[0]:
             image = Image.open(uploaded_file)
             
             # Display the image
-            st.image(image, caption="Uploaded Image", use_column_width=True)
+            st.image(image, caption="Uploaded Image", use_container_width=True)
             
             # Get and display image information
             image_info = get_image_info(image)
@@ -317,11 +317,11 @@ with cv_tabs[1]:
                     
                     with col1:
                         st.markdown("**Original Image**")
-                        st.image(image, use_column_width=True)
+                        st.image(image, use_container_width=True)
                     
                     with col2:
                         st.markdown("**Processed Image**")
-                        st.image(processed_image, use_column_width=True)
+                        st.image(processed_image, use_container_width=True)
                     
                     # Option to download the processed image
                     buf = io.BytesIO()
@@ -580,7 +580,7 @@ with cv_tabs[3]:
                         
                         # Display the result
                         st.markdown("#### Detection Results")
-                        st.image(img_array, caption="Object Detection Results", use_column_width=True)
+                        st.image(img_array, caption="Object Detection Results", use_container_width=True)
                         
                         # Display detection results as table
                         if results:

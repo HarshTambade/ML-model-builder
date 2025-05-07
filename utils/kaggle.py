@@ -93,6 +93,7 @@ def search_kaggle_datasets(query, sort_by="hottest", license_type=None, file_typ
 def download_kaggle_dataset(dataset_ref, path=None, unzip=True):
     """Download a dataset from Kaggle directly using requests to avoid API issues."""
     if not KAGGLE_AVAILABLE:
+        st.error("Kaggle API not available. Install the kaggle package with pip install kaggle.")
         return {"error": "Kaggle API not available. Install the kaggle package with pip install kaggle."}
     try:
         # Set download path
@@ -106,10 +107,13 @@ def download_kaggle_dataset(dataset_ref, path=None, unzip=True):
         url = f"https://www.kaggle.com/api/v1/datasets/download/{dataset_ref}"
         response = requests.get(url, auth=auth, stream=True)
         if response.status_code == 401:
+            st.error("Unauthorized. Please check your Kaggle API credentials in the settings.")
             return {"error": "Unauthorized. Please check your Kaggle API credentials."}
         if response.status_code == 404:
+            st.error(f"Dataset '{dataset_ref}' not found on Kaggle.")
             return {"error": f"Dataset '{dataset_ref}' not found on Kaggle."}
         if response.status_code != 200:
+            st.error(f"Failed to download dataset: HTTP {response.status_code} - {response.text}")
             return {"error": f"Failed to download dataset: HTTP {response.status_code} - {response.text}"}
         # Get the filename from content disposition header
         content_disposition = response.headers.get('content-disposition', '')
@@ -147,9 +151,11 @@ def download_kaggle_dataset(dataset_ref, path=None, unzip=True):
             "download_path": str(path)
         }
     except requests.exceptions.RequestException as e:
+        st.error(f"Network error downloading dataset: {str(e)}. Please check your internet connection and try again.")
         logger.error(f"Network error downloading dataset: {str(e)}")
         return {"error": f"Network error downloading dataset: {str(e)}"}
     except Exception as e:
+        st.error(f"Error downloading dataset: {str(e)}. Please check your network connection or Kaggle API credentials.")
         logger.error(f"Error downloading dataset with direct method: {str(e)}")
         # Fall back to simple sample data if everything else fails
         try:

@@ -301,14 +301,33 @@ with dataset_tabs[1]:
         with st.spinner("Generating dataset..."):
             try:
                 # Generate the dataset
-                df = generate_synthetic_data(
-                    n_samples=n_samples,
-                    n_features=n_features,
-                    data_type=dataset_type,
-                    n_classes=n_classes,
-                    n_informative=n_informative,
-                    class_sep=class_sep
-                )
+                if dataset_type == "classification":
+                    df = generate_synthetic_data(
+                        n_samples=n_samples,
+                        n_features=n_features,
+                        data_type=dataset_type,
+                        n_classes=n_classes,
+                        n_informative=n_informative,
+                        class_sep=class_sep
+                    )
+                elif dataset_type == "regression":
+                    df = generate_synthetic_data(
+                        n_samples=n_samples,
+                        n_features=n_features,
+                        data_type=dataset_type,
+                        n_informative=n_informative,
+                        # noise is handled inside generate_synthetic_data if needed
+                    )
+                elif dataset_type == "clustering":
+                    df = generate_synthetic_data(
+                        n_samples=n_samples,
+                        n_features=n_features,
+                        data_type=dataset_type,
+                        n_classes=n_clusters,  # n_classes is used as centers in clustering
+                        cluster_std=cluster_std
+                    )
+                else:
+                    raise ValueError(f"Unsupported dataset type: {dataset_type}")
                 
                 # Fix DataFrame for display
                 df = fix_dataframe_dtypes(df)

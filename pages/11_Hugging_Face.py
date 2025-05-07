@@ -497,7 +497,7 @@ with hf_tabs[3]:
     
     if uploaded_image is not None:
         # Display uploaded image
-        st.image(uploaded_image, caption="Uploaded Image", use_column_width=True)
+        st.image(uploaded_image, caption="Uploaded Image", use_container_width=True)
         
         # Process image button
         if st.button("Process Image"):
