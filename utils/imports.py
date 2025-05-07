@@ -328,6 +328,10 @@ def patch_streamlit_dataframe_display():
         # Create patched versions that apply fixes before display
         def patched_dataframe(data, *args, **kwargs):
             if isinstance(data, pd.DataFrame):
+                is_valid, msg, problematic = validate_dataframe_for_streamlit(data)
+                if not is_valid:
+                    st.error(f"Cannot display DataFrame: {msg}")
+                    return None
                 # Apply fixes to make DataFrame compatible with Arrow
                 fixed_data = fix_dataframe_dtypes(data)
                 return original_dataframe(fixed_data, *args, **kwargs)
@@ -335,14 +339,20 @@ def patch_streamlit_dataframe_display():
         
         def patched_table(data, *args, **kwargs):
             if isinstance(data, pd.DataFrame):
-                # Apply fixes to make DataFrame compatible with Arrow
+                is_valid, msg, problematic = validate_dataframe_for_streamlit(data)
+                if not is_valid:
+                    st.error(f"Cannot display DataFrame: {msg}")
+                    return None
                 fixed_data = fix_dataframe_dtypes(data)
                 return original_table(fixed_data, *args, **kwargs)
             return original_table(data, *args, **kwargs)
         
         def patched_write(*args, **kwargs):
             if len(args) > 0 and isinstance(args[0], pd.DataFrame):
-                # Apply fixes to make DataFrame compatible with Arrow
+                is_valid, msg, problematic = validate_dataframe_for_streamlit(args[0])
+                if not is_valid:
+                    st.error(f"Cannot display DataFrame: {msg}")
+                    return None
                 fixed_data = fix_dataframe_dtypes(args[0])
                 return original_write(fixed_data, *args[1:], **kwargs)
             return original_write(*args, **kwargs)
@@ -354,7 +364,7 @@ def patch_streamlit_dataframe_display():
         
         logger.info("Streamlit DataFrame display patched for better compatibility")
     except Exception as e:
-        logger.warning(f"Failed to patch Streamlit DataFrame display: {str(e)}") 
+        logger.warning(f"Failed to patch Streamlit DataFrame display: {str(e)}")
 
 def apply_torch_monkey_patch():
     """
@@ -445,3 +455,24 @@ def apply_torch_monkey_patch():
         logger.warning(f"Could not patch pandas arrow conversion: {str(e)}")
         
     return True 
+
+def validate_dataframe_for_streamlit(df):
+    """
+    Check a DataFrame for columns with unsupported types for Streamlit/Arrow serialization.
+    Returns a tuple (is_valid, message, problematic_columns)
+    """
+    if not isinstance(df, pd.DataFrame):
+        return True, "Input is not a DataFrame.", []
+    problematic = []
+    for col in df.columns:
+        dtype = df[col].dtype
+        inferred = pd.api.types.infer_dtype(df[col], skipna=True)
+        if inferred in ["mixed", "mixed-integer", "mixed-integer-float", "complex", "mixed-integer-float", "mixed-integer-float"]:
+            problematic.append((col, str(dtype), inferred))
+        elif any(isinstance(x, (list, dict, tuple, set, bytes)) for x in df[col].head(20)):
+            problematic.append((col, str(dtype), "contains complex objects"))
+    if problematic:
+        msg = "The following columns have unsupported or mixed types and may cause display/serialization errors: "
+        msg += ", ".join([f"'{col}' (dtype={dtype}, inferred={inferred})" for col, dtype, inferred in problematic])
+        return False, msg, problematic
+    return True, "DataFrame is valid for Streamlit display.", [] 

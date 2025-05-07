@@ -102,25 +102,25 @@ def get_dataset_info(dataset_id):
 
 def load_dataset(dataset_name):
     """Load a dataset from storage."""
+    dataset_path = DATASETS_DIR / dataset_name
+    if not dataset_path.exists():
+        return {"error": f"Dataset '{dataset_name}' not found. Please check the dataset name or upload it again."}
+    # Find CSV file in dataset directory
+    csv_files = list(dataset_path.glob("*.csv"))
+    if not csv_files:
+        return {"error": f"No CSV file found in dataset '{dataset_name}'. Please ensure the dataset was uploaded correctly."}
     try:
-        dataset_path = DATASETS_DIR / dataset_name
-        if not dataset_path.exists():
-            return {"error": f"Dataset '{dataset_name}' not found"}
-        
-        # Find CSV file in dataset directory
-        csv_files = list(dataset_path.glob("*.csv"))
-        if not csv_files:
-            return {"error": f"No CSV file found in dataset '{dataset_name}'"}
-        
         # Load the first CSV file found
         df = pd.read_csv(csv_files[0])
-        
-        # Fix DataFrame dtypes for ArrowInvalid serialization errors
-        df = fix_dataframe_dtypes(df)
-        
-        return df
+    except pd.errors.ParserError as e:
+        return {"error": f"CSV parsing error: {str(e)}. The file may be corrupted or not a valid CSV."}
+    except FileNotFoundError:
+        return {"error": f"CSV file not found in '{dataset_path}'."}
     except Exception as e:
-        return {"error": f"Error loading dataset: {str(e)}"}
+        return {"error": f"Unexpected error loading dataset: {str(e)}"}
+    # Fix DataFrame dtypes for ArrowInvalid serialization errors
+    df = fix_dataframe_dtypes(df)
+    return df
 
 def save_uploaded_file(uploaded_file, directory=UPLOADS_DIR):
     """Save an uploaded file to the specified directory."""
@@ -148,14 +148,16 @@ def save_dataset(df, dataset_name, description="", dataset_type="tabular"):
     dataset_id = f"{dataset_name.lower().replace(' ', '_')}_{timestamp}"
     dataset_dir = DATASETS_DIR / dataset_id
     os.makedirs(dataset_dir, exist_ok=True)
-    
     # Fix DataFrame dtypes for ArrowInvalid serialization errors
     df = fix_dataframe_dtypes(df)
-    
-    # Save the dataset in multiple formats
-    df.to_csv(dataset_dir / "data.csv", index=False)
-    df.to_pickle(dataset_dir / "data.pkl")
-    
+    try:
+        # Save the dataset in multiple formats
+        df.to_csv(dataset_dir / "data.csv", index=False)
+        df.to_pickle(dataset_dir / "data.pkl")
+    except PermissionError:
+        return {"error": f"Permission denied when saving dataset to '{dataset_dir}'. Please check write permissions."}
+    except Exception as e:
+        return {"error": f"Error saving dataset: {str(e)}"}
     # Create a metadata file
     metadata = {
         "name": dataset_name,
@@ -168,16 +170,16 @@ def save_dataset(df, dataset_name, description="", dataset_type="tabular"):
         "missing_values": df.isnull().sum().to_dict(),
         "id": dataset_id,
     }
-    
-    with open(dataset_dir / "metadata.json", "w") as f:
-        json.dump(metadata, f, indent=2)
-    
+    try:
+        with open(dataset_dir / "metadata.json", "w") as f:
+            json.dump(metadata, f, indent=2)
+    except Exception as e:
+        return {"error": f"Error saving dataset metadata: {str(e)}"}
     # Generate and save preview visualizations
     try:
         generate_dataset_visualizations(df, dataset_dir)
-    except:
-        pass
-    
+    except Exception as e:
+        logger.warning(f"Could not generate dataset visualizations: {str(e)}")
     return {
         "id": dataset_id,
         "path": str(dataset_dir),
