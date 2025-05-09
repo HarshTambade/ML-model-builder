@@ -194,13 +194,13 @@ with col2:
                     flex-direction: column;
                     justify-content: space-between;
                     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);">
-            <h3 style="color: white; margin-top: 0;">📊 Kaggle Datasets</h3>
+            <h3 style="color: white; margin-top: 0;">🌐 Website Builder</h3>
             <p style="color: white;">
-                Find and import datasets from Kaggle
+                Build and export static websites with our no-code builder
             </p>
-            <a href="/12_Kaggle_Datasets" target="_self" style="text-decoration: none;">
+            <a href="/10_Website_Builder" target="_self" style="text-decoration: none;">
                 <div style="display: flex; align-items: center; color: white;">
-                    <span>Go to Kaggle Integration</span>
+                    <span>Go to Website Builder</span>
                     <span style="margin-left: 0.5rem;">→</span>
                 </div>
             </a>

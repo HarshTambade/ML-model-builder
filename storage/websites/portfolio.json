@@ -1,0 +1,90 @@
+{
+  "config": {
+    "title": "Portfolio",
+    "description": "A beautiful personal portfolio template.",
+    "template": "Portfolio",
+    "theme": {
+      "primary": "#2563eb",
+      "background": "#fff",
+      "text": "#222"
+    },
+    "pages": [
+      {
+        "title": "Home",
+        "components": [
+          {
+            "name": "Hero",
+            "image": "",
+            "icon": "",
+            "props": {
+              "custom_code": {
+                "html": "",
+                "css": "",
+                "js": ""
+              }
+            }
+          },
+          {
+            "name": "About",
+            "image": "",
+            "icon": "",
+            "props": {
+              "custom_code": {
+                "html": "",
+                "css": "",
+                "js": ""
+              }
+            }
+          },
+          {
+            "name": "Projects",
+            "image": "",
+            "icon": "",
+            "props": {
+              "custom_code": {
+                "html": "",
+                "css": "",
+                "js": ""
+              }
+            }
+          },
+          {
+            "name": "Contact",
+            "image": "",
+            "icon": "",
+            "props": {
+              "custom_code": {
+                "html": "",
+                "css": "",
+                "js": ""
+              }
+            }
+          },
+          {
+            "name": "Custom Code (AI)",
+            "image": "",
+            "icon": "",
+            "props": {
+              "custom_code": {
+                "html": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Coaching Classes</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n    <header>\n        <h1>Ace Your Exams with Us!</h1>\n        <nav>\n            <a href=\"#\">Home</a>\n            <a href=\"#\">Courses</a>\n            <a href=\"#\">About Us</a>\n            <a href=\"#\">Contact</a>\n        </nav>\n    </header>\n\n    <section id=\"hero\">\n        <h2>Unlock Your Potential</h2>\n        <p>Expert coaching for academic success.</p>\n        <button>Learn More</button>\n    </section>\n\n    <section id=\"courses\">\n        <h2>Our Courses</h2>\n        <div class=\"course-grid\">\n            <!-- Course cards will be dynamically added here -->\n        </div>\n    </section>\n\n    <section id=\"about\">\n        <h2>About Us</h2>\n        <p>We are a team of experienced educators dedicated to helping students achieve their academic goals.  We offer personalized support and a supportive learning environment.</p>\n    </section>\n\n    <section id=\"contact\">\n        <h2>Contact Us</h2>\n        <form id=\"contact-form\">\n            <input type=\"text\" id=\"name\" placeholder=\"Your Name\" required>\n            <input type=\"email\" id=\"email\" placeholder=\"Your Email\" required>\n            <textarea id=\"message\" placeholder=\"Your Message\" required></textarea>\n            <button type=\"submit\">Send</button>\n        </form>\n    </section>\n\n    <footer>\n        <p>&copy; 2023 Coaching Classes. All rights reserved.</p>\n    </footer>\n    <script src=\"script.js\"></script>\n</body>\n</html>\n\n```",
+                "css": "```css\nbody {\n    font-family: sans-serif;\n    margin: 0;\n    padding: 0;\n    line-height: 1.6;\n}\n\nheader {\n    background-color: #333;\n    color: white;\n    padding: 1rem 0;\n    text-align: center;\n}\n\nnav a {\n    color: white;\n    text-decoration: none;\n    margin: 0 1rem;\n}\n\n#hero {\n    background-image: url('hero-image.jpg'); /* Replace with your hero image */\n    background-size: cover;\n    background-position: center;\n    color: white;\n    text-align: center;\n    padding: 100px 0;\n}\n\n#hero h2 {\n    font-size: 3rem;\n    margin-bottom: 1rem;\n}\n\n#hero button {\n    background-color: #ff9800; /* Example color */\n    color: white;\n    padding: 1rem 2rem;\n    border: none;\n    border-radius: 5px;\n    cursor: pointer;\n}\n\n#courses {\n    padding: 2rem;\n}\n\n.course-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive grid */\n    grid-gap: 20px;\n}\n\n.course-card { /* Add styles for individual course cards later */\n    border: 1px solid #ccc;\n    padding: 1rem;\n}\n\nfooter {\n    background-color: #333;\n    color: white;\n    text-align: center;\n    padding: 1rem 0;\n}\n\n#contact-form input, #contact-form textarea {\n    width: 100%;\n    padding: 0.5rem;\n    margin-bottom: 1rem;\n    border: 1px solid #ccc;\n}\n\n\n```",
+                "js": "```javascript\ndocument.addEventListener('DOMContentLoaded', () => {\n    const coursesSection = document.getElementById('courses');\n    const courseData = [\n      { title: \"Math Mastery\", description: \"Ace your math exams with our comprehensive course.\" },\n      { title: \"Science Success\", description: \"Unlock the secrets of science with our expert tutors.\" },\n      { title: \"English Excellence\", description: \"Improve your writing and reading skills with our engaging program.\"}\n      // Add more courses here\n    ];\n\n\n    courseData.forEach(course => {\n        const courseCard = document.createElement('div');\n        courseCard.classList.add('course-card');\n        courseCard.innerHTML = `<h3>${course.title}</h3><p>${course.description}</p>`;\n        coursesSection.querySelector('.course-grid').appendChild(courseCard);\n    });\n\n\n    const contactForm = document.getElementById('contact-form');\n    contactForm.addEventListener('submit', (event) => {\n        event.preventDefault();\n        // Add your form submission logic here (e.g., using fetch to send data to a server)\n        alert('Thank you for your message!');\n        contactForm.reset();\n    });\n});\n```\n\nThis improved response includes error handling (checking for DOM elements before use),  a more robust and responsive grid system for courses, and a placeholder for form submission handling.  Remember to replace `'hero-image.jpg'` with an actual image path.  The Javascript adds basic course cards dynamically; you'll want to expand this significantly to fetch course data from an API or database in a real-world application.  Also,  consider adding error handling and input validation to the contact form."
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "css_framework": "None",
+    "metadata": {
+      "site_title": "Portfolio",
+      "description": "A beautiful personal portfolio template.",
+      "favicon": ""
+    }
+  },
+  "code": {
+    "html": "",
+    "css": "",
+    "js": ""
+  }
+}
