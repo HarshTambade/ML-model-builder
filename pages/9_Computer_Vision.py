@@ -241,7 +241,9 @@ with cv_tabs[0]:
             
             # Convert channel stats to DataFrame for display
             channel_df = pd.DataFrame(image_info['channel_stats'])
-            is_valid, msg, problematic = validate_dataframe_for_streamlit(channel_df)
+            
+            # Validate DataFrame before display
+            is_valid, msg = validate_dataframe_for_streamlit(channel_df)
             if not is_valid:
                 st.error(f"Cannot display DataFrame: {msg}")
             else:
@@ -450,9 +452,10 @@ with cv_tabs[2]:
                         results_df.columns = ["Label", "Confidence"]
                         results_df["Confidence"] = results_df["Confidence"].apply(lambda x: f"{x:.2%}")
                         
-                        is_valid, msg, problematic = validate_dataframe_for_streamlit(results_df)
+                        # Validate results DataFrame before display
+                        is_valid, msg = validate_dataframe_for_streamlit(results_df)
                         if not is_valid:
-                            st.error(f"Cannot display DataFrame: {msg}")
+                            st.error(f"Cannot display results: {msg}")
                         else:
                             st.dataframe(results_df)
                             
@@ -595,9 +598,11 @@ with cv_tabs[3]:
                                 })
                             
                             detection_df = pd.DataFrame(detection_data)
-                            is_valid, msg, problematic = validate_dataframe_for_streamlit(detection_df)
+                            
+                            # Validate detection DataFrame before display
+                            is_valid, msg = validate_dataframe_for_streamlit(detection_df)
                             if not is_valid:
-                                st.error(f"Cannot display DataFrame: {msg}")
+                                st.error(f"Cannot display detection results: {msg}")
                             else:
                                 st.dataframe(detection_df)
                                 

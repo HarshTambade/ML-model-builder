@@ -88,7 +88,7 @@ with training_tabs[0]:
                     # Fix DataFrame for display
                     df = fix_dataframe_dtypes(df)
                     # Validate DataFrame before display
-                    is_valid, msg, problematic = validate_dataframe_for_streamlit(df)
+                    is_valid, msg = validate_dataframe_for_streamlit(df)
                     if not is_valid:
                         st.error(f"Cannot display DataFrame: {msg}")
                     else:
@@ -188,7 +188,7 @@ with training_tabs[0]:
                     # Fix DataFrame for display
                     df = fix_dataframe_dtypes(df)
                     # Validate DataFrame before display
-                    is_valid, msg, problematic = validate_dataframe_for_streamlit(df)
+                    is_valid, msg = validate_dataframe_for_streamlit(df)
                     if not is_valid:
                         st.error(f"Cannot display DataFrame: {msg}")
                     else:

@@ -3,6 +3,15 @@ ALPHA - Advanced Frontend Website Builder (HTML/CSS/JS)
 A robust, user-friendly, and modern static website UI builder for rapid prototyping.
 """
 
+# Add proper path handling for imports
+import os
+import sys
+# Add the project root directory to the Python path if not already there
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import streamlit as st
 import json
 import zipfile
@@ -10,9 +19,23 @@ import io
 from pathlib import Path
 import shutil
 import requests
-import os
 import traceback
 import uuid
+from dotenv import load_dotenv
+import base64
+from utils.helpers import load_css
+from utils.imports import is_package_available
+from utils.website_builder import (
+    COMPONENTS, 
+    css_frameworks, 
+    color_schemes, 
+    website_templates,
+    render_html_preview, 
+    generate_website_zip
+)
+
+# Load environment variables
+load_dotenv()
 
 # --- Global icon options and labels (for all components) ---
 icon_options = ["", "fa-solid fa-star", "fa-solid fa-user", "fa-solid fa-heart", "fa-solid fa-rocket", "fa-solid fa-cog", "fa-solid fa-envelope"]
@@ -158,6 +181,38 @@ def normalize_page_structure(config):
         
     normalized_pages = []
     
+    # Normalize theme keys and colors
+    if "theme" in config:
+        theme = config["theme"]
+        normalized_theme = {}
+        
+        # Handle different key formats: primary/primary_color, etc.
+        if "primary" in theme:
+            normalized_theme["primary"] = theme["primary"]
+        elif "primary_color" in theme:
+            normalized_theme["primary"] = theme["primary_color"]
+            
+        if "background" in theme:
+            normalized_theme["background"] = theme["background"]
+        elif "background_color" in theme:
+            normalized_theme["background"] = theme["background_color"]
+            
+        if "text" in theme:
+            normalized_theme["text"] = theme["text"]
+        elif "text_color" in theme:
+            normalized_theme["text"] = theme["text_color"]
+            
+        # Ensure all values are set with fallbacks
+        if "primary" not in normalized_theme:
+            normalized_theme["primary"] = "#2563eb"  # Default blue
+        if "background" not in normalized_theme:
+            normalized_theme["background"] = "#ffffff"  # Default white
+        if "text" not in normalized_theme:
+            normalized_theme["text"] = "#222222"  # Default dark
+            
+        # Update the config with normalized theme
+        config["theme"] = normalized_theme
+    
     for page in config["pages"]:
         normalized_page = {}
         
@@ -222,6 +277,15 @@ selected_page = pages[selected_page_idx]
 
 # --- Move generate_website_zip to top level (after imports and globals) ---
 def generate_website_zip(config, code):
+    # Ensure css_frameworks is available
+    global css_frameworks
+    if 'css_frameworks' not in globals():
+        css_frameworks = {
+            "None": "",
+            "Bootstrap 5": "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css",
+            "Tailwind CSS": "https://cdn.jsdelivr.net/npm/tailwindcss@3.3.3/dist/tailwind.min.css"
+        }
+        
     def render_component_export(comp_data):
         name = comp_data["name"] if isinstance(comp_data, dict) else comp_data
         img_src = comp_data.get("image", "") if isinstance(comp_data, dict) else ""
@@ -353,6 +417,110 @@ def generate_website_zip(config, code):
         error_buffer.seek(0)
         return error_buffer
 
+# --- Live HTML Preview Function ---
+def render_html_preview(config, code, width):
+    # Ensure css_frameworks is available
+    global css_frameworks
+    if 'css_frameworks' not in globals():
+        css_frameworks = {
+            "None": "",
+            "Bootstrap 5": "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css",
+            "Tailwind CSS": "https://cdn.jsdelivr.net/npm/tailwindcss@3.3.3/dist/tailwind.min.css"
+        }
+    
+    def render_component_preview(comp_data):
+        name = comp_data["name"] if isinstance(comp_data, dict) else comp_data
+        img_src = comp_data.get("image", "") if isinstance(comp_data, dict) else ""
+        icon = comp_data.get("icon", "") if isinstance(comp_data, dict) else ""
+        props = comp_data.get("props", {}) if isinstance(comp_data, dict) else {}
+        icon_html = f'<i class="{icon}" style="margin-right:8px;"></i>' if icon else ""
+        img_tag = f'<img src="images/{Path(img_src).name}" style="max-width:100px;max-height:60px;margin-right:8px;vertical-align:middle;">' if img_src and Path(img_src).exists() else ""
+        # Custom code override
+        custom_code = props.get("custom_code", {})
+        if custom_code.get("html"):
+            custom_html = custom_code["html"]
+            custom_css = custom_code.get("css", "")
+            custom_js = custom_code.get("js", "")
+            return f'<div class="component-preview" style="border:1px solid #aaa; margin-bottom:10px;">{custom_html}<style>{custom_css}</style><script>{custom_js}</script></div>'
+        style = "border:1px dashed #ccc; padding:10px; margin-bottom:10px; background-color:#f9f9f9; display:flex; align-items:center;"
+        content = f'{icon_html}{img_tag}<span style="vertical-align:middle; font-weight:bold;">{name}</span>'
+        if name == "Button":
+            btn_text = props.get("text", "Button")
+            content = f'<button style="padding: 5px 10px; background-color:{config["theme"]["primary"]}; color:white; border:none; border-radius:3px;">{icon_html}{btn_text}</button>'
+        elif name == "Card":
+            card_title = props.get("title", "Card Title")
+            card_content = props.get("content", "Card content...")
+            content = f'{icon_html}{img_tag}<div><h4>{card_title}</h4><p>{card_content}</p></div>'
+        elif name == "Divider":
+            return '<hr style="margin:15px 0;">'
+        elif name == "Text Block":
+            text_content = props.get("content", "This is a block of text (Lorem ipsum...)")
+            content = f'<p>{icon_html}{text_content} {img_tag}</p>'
+        elif name == "Columns (2)":
+            content = '<div style="display:flex;gap:10px;"><div style="flex:1;border:1px dashed blue;min-height:50px;text-align:center;">Col 1</div><div style="flex:1;border:1px dashed blue;min-height:50px;text-align:center;">Col 2</div></div>'
+        elif name == "Columns (3)":
+            content = '<div style="display:flex;gap:10px;"><div style="flex:1;border:1px dashed green;min-height:50px;text-align:center;">Col 1</div><div style="flex:1;border:1px dashed green;min-height:50px;text-align:center;">Col 2</div><div style="flex:1;border:1px dashed green;min-height:50px;text-align:center;">Col 3</div></div>'
+        elif name == "Grid":
+            content = '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(100px, 1fr));gap:10px;"><div style="border:1px dashed orange;min-height:50px;text-align:center;">Grid Item</div><div style="border:1px dashed orange;min-height:50px;text-align:center;">Grid Item</div><div style="border:1px dashed orange;min-height:50px;text-align:center;">Grid Item</div></div>'
+        return f'<div class="component-preview" style="{style}">{content}</div>'
+
+    theme_style = f"""
+    body {{ 
+        background: {config['theme']['background']};
+        color: {config['theme']['text']};
+        font-family: sans-serif;
+        padding: 20px;
+    }}
+    h1, h2 {{ color: {config['theme']['primary']}; }}
+    section {{ margin-bottom: 20px; border-top: 1px solid #eee; padding-top:20px; }}
+    .component {{ background-color: #f9f9f9; border-left: 3px solid {config['theme']['primary']}; }}
+    """
+
+    # Inject CSS framework CDN if selected
+    framework_cdn = css_frameworks.get(config.get("css_framework", "None"), "")
+    framework_link = f'<link rel="stylesheet" href="{framework_cdn}">' if framework_cdn else ""
+
+    # Inject FontAwesome CDN if any icon is used
+    any_icon = any(
+        any(isinstance(c, dict) and c.get("icon") for c in p["components"]) for p in config["pages"]
+    )
+    fa_link = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">' if any_icon else ""
+
+    meta = config.get("metadata", {})
+    meta_title = meta.get("site_title", config["title"])
+    meta_desc = meta.get("description", config["description"])
+    favicon = meta.get("favicon", "")
+    favicon_link = f'<link rel="icon" href="{favicon}">' if favicon else ""
+
+    html_content = (
+        f"<h1 style='color:{config['theme']['primary']}'>{config['title']}</h1>"
+        f"<p>{config['description']}</p>"
+        + ''.join([
+            f"<section><h2>{p['title']}</h2>" + ''.join([render_component_preview(c) for c in p['components']]) + "</section>"
+            for p in config['pages']
+        ])
+        + code['html'] 
+    )
+    
+    full_html = f"""<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>{meta_title}</title>
+    <meta name='description' content='{meta_desc}'>
+    {favicon_link}
+    {framework_link}
+    {fa_link}
+    <style>{theme_style}{code['css']}</style>
+</head>
+<body>
+    {html_content}
+    <script>{code['js']}</script>
+</body>
+</html>"""
+    st.components.v1.html(full_html, height=600, scrolling=True, width=width if isinstance(width, int) else None)
+
 # --- Modular utility functions ---
 def edit_page_title(page, idx):
     """Edit the title of a page with validation."""
@@ -469,101 +637,6 @@ def display_component_list(components):
                 components.pop(i)
                 st.rerun()
 
-# --- Live HTML Preview Function ---
-def render_html_preview(config, code, width):
-    def render_component_preview(comp_data):
-        name = comp_data["name"] if isinstance(comp_data, dict) else comp_data
-        img_src = comp_data.get("image", "") if isinstance(comp_data, dict) else ""
-        icon = comp_data.get("icon", "") if isinstance(comp_data, dict) else ""
-        props = comp_data.get("props", {}) if isinstance(comp_data, dict) else {}
-        icon_html = f'<i class="{icon}" style="margin-right:8px;"></i>' if icon else ""
-        img_tag = f'<img src="images/{Path(img_src).name}" style="max-width:100px;max-height:60px;margin-right:8px;vertical-align:middle;">' if img_src and Path(img_src).exists() else ""
-        # Custom code override
-        custom_code = props.get("custom_code", {})
-        if custom_code.get("html"):
-            custom_html = custom_code["html"]
-            custom_css = custom_code.get("css", "")
-            custom_js = custom_code.get("js", "")
-            return f'<div class="component-preview" style="border:1px solid #aaa; margin-bottom:10px;">{custom_html}<style>{custom_css}</style><script>{custom_js}</script></div>'
-        style = "border:1px dashed #ccc; padding:10px; margin-bottom:10px; background-color:#f9f9f9; display:flex; align-items:center;"
-        content = f'{icon_html}{img_tag}<span style="vertical-align:middle; font-weight:bold;">{name}</span>'
-        if name == "Button":
-            btn_text = props.get("text", "Button")
-            content = f'<button style="padding: 5px 10px; background-color:{config["theme"]["primary"]}; color:white; border:none; border-radius:3px;">{icon_html}{btn_text}</button>'
-        elif name == "Card":
-            card_title = props.get("title", "Card Title")
-            card_content = props.get("content", "Card content...")
-            content = f'{icon_html}{img_tag}<div><h4>{card_title}</h4><p>{card_content}</p></div>'
-        elif name == "Divider":
-            return '<hr style="margin:15px 0;">'
-        elif name == "Text Block":
-            text_content = props.get("content", "This is a block of text (Lorem ipsum...)")
-            content = f'<p>{icon_html}{text_content} {img_tag}</p>'
-        elif name == "Columns (2)":
-            content = '<div style="display:flex;gap:10px;"><div style="flex:1;border:1px dashed blue;min-height:50px;text-align:center;">Col 1</div><div style="flex:1;border:1px dashed blue;min-height:50px;text-align:center;">Col 2</div></div>'
-        elif name == "Columns (3)":
-            content = '<div style="display:flex;gap:10px;"><div style="flex:1;border:1px dashed green;min-height:50px;text-align:center;">Col 1</div><div style="flex:1;border:1px dashed green;min-height:50px;text-align:center;">Col 2</div><div style="flex:1;border:1px dashed green;min-height:50px;text-align:center;">Col 3</div></div>'
-        elif name == "Grid":
-            content = '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(100px, 1fr));gap:10px;"><div style="border:1px dashed orange;min-height:50px;text-align:center;">Grid Item</div><div style="border:1px dashed orange;min-height:50px;text-align:center;">Grid Item</div><div style="border:1px dashed orange;min-height:50px;text-align:center;">Grid Item</div></div>'
-        return f'<div class="component-preview" style="{style}">{content}</div>'
-
-    theme_style = f"""
-    body {{ 
-        background: {config['theme']['background']};
-        color: {config['theme']['text']};
-        font-family: sans-serif;
-        padding: 20px;
-    }}
-    h1, h2 {{ color: {config['theme']['primary']}; }}
-    section {{ margin-bottom: 20px; border-top: 1px solid #eee; padding-top:20px; }}
-    .component {{ background-color: #f9f9f9; border-left: 3px solid {config['theme']['primary']}; }}
-    """
-
-    # Inject CSS framework CDN if selected
-    framework_cdn = css_frameworks.get(config.get("css_framework", "None"), "")
-    framework_link = f'<link rel="stylesheet" href="{framework_cdn}">' if framework_cdn else ""
-
-    # Inject FontAwesome CDN if any icon is used
-    any_icon = any(
-        any(isinstance(c, dict) and c.get("icon") for c in p["components"]) for p in config["pages"]
-    )
-    fa_link = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">' if any_icon else ""
-
-    meta = config.get("metadata", {})
-    meta_title = meta.get("site_title", config["title"])
-    meta_desc = meta.get("description", config["description"])
-    favicon = meta.get("favicon", "")
-    favicon_link = f'<link rel="icon" href="{favicon}">' if favicon else ""
-
-    html_content = (
-        f"<h1 style='color:{config['theme']['primary']}'>{config['title']}</h1>"
-        f"<p>{config['description']}</p>"
-        + ''.join([
-            f"<section><h2>{p['title']}</h2>" + ''.join([render_component_preview(c) for c in p['components']]) + "</section>"
-            for p in config['pages']
-        ])
-        + code['html'] 
-    )
-    
-    full_html = f"""<!DOCTYPE html>
-<html lang='en'>
-<head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>{meta_title}</title>
-    <meta name='description' content='{meta_desc}'>
-    {favicon_link}
-    {framework_link}
-    {fa_link}
-    <style>{theme_style}{code['css']}</style>
-</head>
-<body>
-    {html_content}
-    <script>{code['js']}</script>
-</body>
-</html>"""
-    st.components.v1.html(full_html, height=600, scrolling=True, width=width if isinstance(width, int) else None)
-
 # --- Remove sidebar navigation and show all sections in order ---
 
 # 1. Template
@@ -612,13 +685,21 @@ selected_page_idx = st.selectbox("Select page:", range(len(pages)), format_func=
 selected_page = pages[selected_page_idx]
 new_page_title = st.text_input("Add new page:", "", key="wb_new_page", help="Enter a title for the new page.")
 if st.button("Add Page", help="Add a new page to your website.") and new_page_title:
-    pages.append({"title": new_page_title, "components": []})
-    st.session_state.wb_current_page = len(pages) - 1
-    st.rerun()
+    # Check for duplicate page names
+    if new_page_title in page_titles:
+        st.warning(f"A page named '{new_page_title}' already exists. Please use a different name.")
+    else:
+        pages.append({"title": new_page_title, "components": []})
+        st.session_state.wb_current_page = len(pages) - 1
+        st.rerun()
 display_page_list(pages)
 edited_title = edit_page_title(selected_page, selected_page_idx)
 if edited_title != selected_page["title"]:
-    selected_page["title"] = edited_title
+    # Check for duplicate page names when editing
+    if edited_title in [p["title"] for p in pages if p != selected_page]:
+        st.warning(f"A page named '{edited_title}' already exists. Please use a different name.")
+    else:
+        selected_page["title"] = edited_title
 
 # 4. Components
 st.subheader("4️⃣ Manage Components")
@@ -659,7 +740,8 @@ if "ai_code" not in st.session_state:
 if "ai_prompt" not in st.session_state:
     st.session_state.ai_prompt = ""
 st.session_state.ai_prompt = st.text_area("Describe what you want to add (e.g., 'Add a hero section with a blue background and a call-to-action button'):", value=st.session_state.ai_prompt, key="ai_prompt_input", help="Describe the section or feature you want the AI to generate.")
-GEMINI_API_KEY = "AIzaSyD6tgcbdvWEK8WhiLNku_K8ZEUtbJUAag8"
+# Get API key from environment variables with fallback
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyD6tgcbdvWEK8WhiLNku_K8ZEUtbJUAag8")
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={GEMINI_API_KEY}"
 def gemini_llm_generate_code(prompt):
     system_prompt = (

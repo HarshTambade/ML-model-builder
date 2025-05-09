@@ -224,7 +224,6 @@ all_features = [
     {"icon": "👁️", "name": "Computer Vision Capabilities"},
     {"icon": "🌐", "name": "ML Website Builder"},
     {"icon": "🔗", "name": "Hugging Face Integration"},
-    {"icon": "🏆", "name": "Kaggle Dataset Access"},
     {"icon": "📱", "name": "Mobile-Friendly Interface"},
     {"icon": "🔒", "name": "Secure File-Based Storage"}
 ]

@@ -183,9 +183,10 @@ with hf_tabs[0]:
             for model in models
         ])
         
-        is_valid, msg, problematic = validate_dataframe_for_streamlit(models_df)
+        # Validate DataFrame before display
+        is_valid, msg = validate_dataframe_for_streamlit(models_df)
         if not is_valid:
-            st.error(f"Cannot display DataFrame: {msg}")
+            st.error(f"Cannot display model list: {msg}")
         else:
             st.dataframe(models_df)
         
@@ -436,9 +437,10 @@ with hf_tabs[2]:
                     
                     # Display results
                     st.markdown("### Classification Results")
-                    is_valid, msg, problematic = validate_dataframe_for_streamlit(results_df)
+                    # Validate results DataFrame before display
+                    is_valid, msg = validate_dataframe_for_streamlit(results_df)
                     if not is_valid:
-                        st.error(f"Cannot display DataFrame: {msg}")
+                        st.error(f"Cannot display results: {msg}")
                     else:
                         st.dataframe(results_df)
                     

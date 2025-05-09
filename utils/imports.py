@@ -8,11 +8,23 @@ import pandas as pd
 import numpy as np
 import os
 import sys
+import streamlit as st
 from utils.config import DEPENDENCY_CONFIG
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Add cache decorators for performance optimization
+def add_caching_decorators():
+    """Add Streamlit cache decorators to frequently used functions"""
+    global fix_dataframe_dtypes, validate_dataframe_for_streamlit
+    
+    # Apply cache decorator to dataframe utility functions
+    fix_dataframe_dtypes = st.cache_data(ttl=3600, show_spinner=False)(fix_dataframe_dtypes)
+    validate_dataframe_for_streamlit = st.cache_data(ttl=3600, show_spinner=False)(validate_dataframe_for_streamlit)
+    
+    logger.info("Added cache decorators to frequently used functions")
 
 def suppress_torch_warnings():
     """
@@ -93,6 +105,7 @@ def suppress_torch_warnings():
     except Exception as e:
         logger.warning(f"Failed to suppress torch warnings: {str(e)}")
 
+@st.cache_data(ttl=3600, show_spinner=False)
 def torch_is_compatible():
     """Check if PyTorch is installed AND compatible with the current environment."""
     if not DEPENDENCY_CONFIG["USE_PYTORCH"]:
@@ -115,6 +128,7 @@ def torch_is_compatible():
         logger.warning(f"PyTorch import raised an unexpected error: {str(e)}")
         return False
 
+@st.cache_data(ttl=3600, show_spinner=False)
 def is_package_available(package_name):
     """Check if a package is available/installed and enabled in configuration."""
     # Special case for PyTorch - check compatibility too
@@ -139,6 +153,7 @@ def is_package_available(package_name):
     except ImportError:
         return False
 
+@st.cache_data(ttl=600, show_spinner=False)
 def get_optional_package(package_name, default=None):
     """Get an optional package, returning default if not available or disabled."""
     if not is_package_available(package_name):
@@ -159,6 +174,7 @@ PACKAGE_ALTERNATIVES = {
     "pyarrow": None
 }
 
+@st.cache_data(ttl=600, show_spinner=False)
 def get_package_or_alternative(package_name):
     """Get a package or its alternative if not available."""
     if is_package_available(package_name):
@@ -172,6 +188,7 @@ def get_package_or_alternative(package_name):
         return None
 
 # Helper functions for specific packages
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_torch():
     """Get PyTorch if available and enabled, otherwise None."""
     if not DEPENDENCY_CONFIG["USE_PYTORCH"]:
@@ -179,6 +196,7 @@ def get_torch():
         return None
     return get_optional_package("torch")
 
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_tensorflow():
     """Get TensorFlow if available and enabled, otherwise None."""
     if not DEPENDENCY_CONFIG["USE_TENSORFLOW"]:
@@ -186,6 +204,7 @@ def get_tensorflow():
         return None
     return get_optional_package("tensorflow")
 
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_transformers():
     """Get Hugging Face Transformers if available and enabled, otherwise None."""
     if not DEPENDENCY_CONFIG["USE_HUGGINGFACE"]:
@@ -248,231 +267,244 @@ def fix_dataframe_dtypes(df):
         # Convert NumPy integer types to standard int64 where possible
         for col in result_df.select_dtypes(include=['integer', 'int32', 'int64']).columns:
             # Check for NaN values which can't be converted to int
-            if result_df[col].isna().any():
-                result_df[col] = result_df[col].astype('float64')
-            else:
-                result_df[col] = result_df[col].astype('int64')
-        
-        # Handle boolean columns
-        for col in result_df.select_dtypes(include=['bool']).columns:
-            result_df[col] = result_df[col].astype('bool')
-            
-        # Handle datetime columns
+            try:
+                if not result_df[col].isna().any():
+                    result_df[col] = result_df[col].astype('int64')
+            except:
+                pass
+                
+        # Convert datetime dtypes to datetime64[ns]
         for col in result_df.select_dtypes(include=['datetime']).columns:
             result_df[col] = pd.to_datetime(result_df[col])
             
-        # Handle object/string columns with mixed types
+        # Handle object dtypes containing only strings
         for col in result_df.select_dtypes(include=['object']).columns:
-            # Try to infer better type
-            inferred_type = pd.api.types.infer_dtype(result_df[col])
-            
-            if inferred_type == 'mixed':
-                # Convert mixed types to string for safety
+            # Sample values to check if this is a string column
+            sample = result_df[col].dropna().head(100)
+            if len(sample) > 0 and all(isinstance(val, str) for val in sample):
                 result_df[col] = result_df[col].astype(str)
-            elif inferred_type == 'mixed-integer':
-                # Try to convert to float (which can represent integers with NaNs)
-                try:
-                    result_df[col] = result_df[col].astype('float64')
-                except:
-                    result_df[col] = result_df[col].astype(str)
-            elif inferred_type == 'string':
-                # Ensure strings are represented as 'object' dtype
-                result_df[col] = result_df[col].astype('object')
-                
-        # Handle any complex types that might cause issues (like arrays in cells)
-        for col in result_df.columns:
-            if result_df[col].apply(lambda x: isinstance(x, (list, dict, tuple))).any():
-                # Convert complex types to strings
-                result_df[col] = result_df[col].apply(lambda x: str(x) if isinstance(x, (list, dict, tuple)) else x)
                 
         return result_df
-        
     except Exception as e:
         logger.warning(f"Error fixing DataFrame dtypes: {str(e)}")
-        # If we encounter errors, try to convert the entire DataFrame to simpler types
-        try:
-            # Last resort attempt: convert all columns to appropriate basic types
-            for col in df.columns:
-                try:
-                    # Try to infer the type and convert appropriately
-                    inferred_type = pd.api.types.infer_dtype(df[col])
-                    if 'int' in inferred_type:
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
-                    elif 'float' in inferred_type:
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
-                    elif 'datetime' in inferred_type:
-                        df[col] = pd.to_datetime(df[col], errors='coerce')
-                    else:
-                        df[col] = df[col].astype(str)
-                except:
-                    # If all else fails, convert to string
-                    df[col] = df[col].astype(str)
-            return df
-        except:
-            # If everything fails, return the original DataFrame
-            return df 
+        # Return the original DataFrame if we can't fix it
+        return df
+
+def validate_dataframe_for_streamlit(df):
+    """
+    Validates a DataFrame for compatibility with Streamlit's display functions.
+    Returns a tuple (is_valid, message) where:
+    - is_valid: Boolean indicating if the DataFrame can be displayed
+    - message: Error message if not valid, empty string otherwise
+    """
+    try:
+        # Basic validation
+        if not isinstance(df, pd.DataFrame):
+            return False, "Input is not a DataFrame"
+            
+        if df.empty:
+            return True, ""  # Empty DataFrames are valid
+            
+        # Check size for memory limits
+        memory_usage = df.memory_usage(deep=True).sum()
+        if memory_usage > 1000 * 1024 * 1024:  # Greater than 1GB
+            return False, f"DataFrame too large ({memory_usage / (1024**2):.2f} MB)"
+            
+        # Check for problematic column names
+        for col in df.columns:
+            if not isinstance(col, (str, int, float)):
+                return False, f"Column names must be string, int, or float. Found: {type(col)}"
+                
+        # Basic check for nested complex types that might cause problems
+        for col in df.columns:
+            try:
+                sample = df[col].head(10).dropna()
+                if len(sample) > 0:
+                    first_valid = sample.iloc[0]
+                    if isinstance(first_valid, (list, dict, set)) and len(str(first_valid)) > 100:
+                        return False, f"Column '{col}' contains complex nested data that may cause display issues"
+            except:
+                pass
+                
+        # If we got here, the DataFrame is probably safe to display
+        return True, ""
+    except Exception as e:
+        return False, f"Validation error: {str(e)}"
 
 def patch_streamlit_dataframe_display():
     """
-    Patch Streamlit's DataFrame display functionality to handle serialization errors.
-    This adds a wrapper around Streamlit's dataframe display methods.
+    Monkey patch Streamlit's dataframe display functions to better handle
+    problematic DataFrames with Arrow serialization issues.
     """
     try:
+        # Only apply patch if streamlit is available
         import streamlit as st
         
-        # Store original functions
+        # Original functions
         original_dataframe = st.dataframe
         original_table = st.table
         original_write = st.write
         
-        # Create patched versions that apply fixes before display
+        # Patched dataframe function
         def patched_dataframe(data, *args, **kwargs):
             if isinstance(data, pd.DataFrame):
-                is_valid, msg, problematic = validate_dataframe_for_streamlit(data)
-                if not is_valid:
-                    st.error(f"Cannot display DataFrame: {msg}")
-                    return None
-                # Apply fixes to make DataFrame compatible with Arrow
+                # Apply fixes
                 fixed_data = fix_dataframe_dtypes(data)
+                # Validate the fixed DataFrame
+                is_valid, message = validate_dataframe_for_streamlit(fixed_data)
+                if not is_valid:
+                    st.error(f"Cannot display DataFrame: {message}")
+                    # Show a preview of the data as plain text
+                    st.code(str(data.head(5)))
+                    return
+                # If valid, display the fixed DataFrame
                 return original_dataframe(fixed_data, *args, **kwargs)
-            return original_dataframe(data, *args, **kwargs)
-        
+            else:
+                # Pass through for non-DataFrame inputs
+                return original_dataframe(data, *args, **kwargs)
+                
+        # Patched table function
         def patched_table(data, *args, **kwargs):
             if isinstance(data, pd.DataFrame):
-                is_valid, msg, problematic = validate_dataframe_for_streamlit(data)
-                if not is_valid:
-                    st.error(f"Cannot display DataFrame: {msg}")
-                    return None
+                # Apply fixes
                 fixed_data = fix_dataframe_dtypes(data)
-                return original_table(fixed_data, *args, **kwargs)
-            return original_table(data, *args, **kwargs)
-        
-        def patched_write(*args, **kwargs):
-            if len(args) > 0 and isinstance(args[0], pd.DataFrame):
-                is_valid, msg, problematic = validate_dataframe_for_streamlit(args[0])
+                # Validate the fixed DataFrame
+                is_valid, message = validate_dataframe_for_streamlit(fixed_data)
                 if not is_valid:
-                    st.error(f"Cannot display DataFrame: {msg}")
-                    return None
+                    st.error(f"Cannot display table: {message}")
+                    # Show a preview of the data as plain text
+                    st.code(str(data.head(5)))
+                    return
+                # If valid, display the fixed DataFrame
+                return original_table(fixed_data, *args, **kwargs)
+            else:
+                # Pass through for non-DataFrame inputs
+                return original_table(data, *args, **kwargs)
+                
+        # Patched write function
+        def patched_write(*args, **kwargs):
+            # Check if first argument is a DataFrame
+            if args and isinstance(args[0], pd.DataFrame):
+                # Apply fixes
                 fixed_data = fix_dataframe_dtypes(args[0])
-                return original_write(fixed_data, *args[1:], **kwargs)
+                # Validate the fixed DataFrame
+                is_valid, message = validate_dataframe_for_streamlit(fixed_data)
+                if not is_valid:
+                    st.error(f"Cannot write DataFrame: {message}")
+                    # Show a preview of the data as plain text
+                    st.code(str(args[0].head(5)))
+                    return
+                # Replace the DataFrame with the fixed version
+                args = (fixed_data,) + args[1:]
+            # Call the original function with the potentially modified args
             return original_write(*args, **kwargs)
-        
-        # Replace the original functions with patched versions
+            
+        # Apply the monkey patches
         st.dataframe = patched_dataframe
         st.table = patched_table
         st.write = patched_write
         
         logger.info("Streamlit DataFrame display patched for better compatibility")
+    except ImportError:
+        logger.warning("Streamlit not available, dataframe display patch not applied")
     except Exception as e:
-        logger.warning(f"Failed to patch Streamlit DataFrame display: {str(e)}")
+        logger.warning(f"Error applying dataframe display patch: {str(e)}")
 
 def apply_torch_monkey_patch():
     """
-    Apply a comprehensive monkey patch to disable PyTorch-related functionality
-    and prevent errors when PyTorch is installed but not working correctly.
-    This is a more extreme solution than suppress_torch_warnings.
+    Apply comprehensive monkey patching to prevent PyTorch-related errors.
+    This is a more aggressive approach when suppress_torch_warnings() is not enough.
     """
-    import sys
-    import types
-    
-    # Only apply if PyTorch is disabled in configuration
-    if DEPENDENCY_CONFIG.get("USE_PYTORCH", False):
-        logger.info("PyTorch is enabled, not applying monkey patch")
-        return
-        
-    logger.info("Applying PyTorch monkey patch to prevent errors")
-    
-    # Create a complete mock torch module
-    class MockTorch(types.ModuleType):
-        def __init__(self):
-            super().__init__("torch")
-            self._C = types.SimpleNamespace()
-            self._C._get_custom_class_python_wrapper = lambda *args, **kwargs: None
-            self.classes = types.SimpleNamespace()
-            self.classes.__path__ = types.SimpleNamespace(_path=[])
-        
-        def __getattr__(self, name):
-            # Return empty modules/functions for any attributes
-            if name.startswith('__') and name.endswith('__'):
-                raise AttributeError(f"module 'torch' has no attribute '{name}'")
-            
-            # Create a new namespace for submodules
-            value = types.SimpleNamespace()
-            setattr(self, name, value)
-            return value
-            
-    # Replace torch in sys.modules if it exists
-    if "torch" in sys.modules:
-        # Save any critical functionality if needed
-        old_torch = sys.modules["torch"]
-        
-        # Install mock
-        sys.modules["torch"] = MockTorch()
-        logger.info("PyTorch module completely replaced with mock")
-    
-    # Monkey patch streamlit to avoid scanning torch modules
     try:
-        # Try to patch streamlit's file watcher directly
-        import streamlit.watcher.local_sources_watcher as watcher
+        import sys
+        import types
         
-        # Save original functions
-        if not hasattr(watcher, "_original_get_module_paths"):
-            watcher._original_get_module_paths = watcher.get_module_paths
-        
-        # Create safe versions that skip torch
+        # Create a more robust fake torch module
+        class MockTorch(types.ModuleType):
+            def __init__(self):
+                super().__init__("torch")
+                self.nn = types.ModuleType("torch.nn")
+                self.optim = types.ModuleType("torch.optim")
+                self.utils = types.ModuleType("torch.utils")
+                self.utils.data = types.ModuleType("torch.utils.data")
+                
+            def __getattr__(self, name):
+                # Return empty modules/functions for any attributes
+                if name.startswith("__") and name.endswith("__"):
+                    # Let Python handle standard dunder methods
+                    raise AttributeError(f"'MockTorch' object has no attribute '{name}'")
+                    
+                # For anything else, return a harmless placeholder
+                if name in ["float32", "float64", "int32", "int64"]:
+                    return name  # Return the name for dtype constants
+                elif name == "cuda":
+                    # Create a mock cuda object that returns False for is_available()
+                    mock_cuda = types.ModuleType("torch.cuda")
+                    mock_cuda.is_available = lambda: False
+                    return mock_cuda
+                elif name == "device":
+                    # Return a callable that returns the device name
+                    return lambda device="cpu": device
+                elif name == "tensor" or name == "Tensor":
+                    # Return a function that raises a descriptive error
+                    def mock_tensor(*args, **kwargs):
+                        raise RuntimeError("MockTorch does not support tensor operations")
+                    return mock_tensor
+                else:
+                    # For any other attribute, return a new module
+                    return types.ModuleType(f"torch.{name}")
+         
+        # Create a safer version of file path extraction for Streamlit
         def safe_get_module_paths(filenames):
             def is_not_torch_module(module_name):
-                return "torch" not in module_name
+                return not module_name.startswith("torch")
+            
+            # Filter out torch modules
+            filtered_filenames = [f for f in filenames if is_not_torch_module(f)]
+            return filtered_filenames
+            
+        # Apply the patch only if needed
+        if "streamlit" in sys.modules:
+            # Replace some problematic Streamlit functions
+            import streamlit as st
+            # Only apply patches if we detect torch being used
+            if "torch" in sys.modules:
+                logger.info("PyTorch detected - applying enhanced compatibility patches")
                 
-            # Filter out torch-related modules before calling original
-            safe_modules = filter(is_not_torch_module, watcher._original_get_module_paths(filenames))
-            return list(safe_modules)
-            
-        # Apply patches
-        watcher.get_module_paths = safe_get_module_paths
-        logger.info("Streamlit file watcher patched to completely ignore torch modules")
-    except (ImportError, AttributeError) as e:
-        logger.warning(f"Could not patch Streamlit watcher: {str(e)}")
-    
-    # Suppress Arrow serialization errors
-    try:
-        if "pyarrow" in sys.modules:
-            # Monkey patch pandas to_arrow to handle problematic conversions
-            original_to_arrow = pd.DataFrame.to_arrow
-            
-            def safe_to_arrow(self, *args, **kwargs):
+                # Create a mock copy that we can progressively enhance
+                mock_torch = MockTorch()
+                
+                # Optional: Copy over some basic functionality from real torch if available
                 try:
-                    # Try original conversion
-                    return original_to_arrow(self, *args, **kwargs)
-                except Exception as e:
-                    # If it fails, fix dtypes and try again
-                    fixed_df = fix_dataframe_dtypes(self)
-                    return original_to_arrow(fixed_df, *args, **kwargs)
+                    real_torch = sys.modules["torch"]
+                    # Copy version information
+                    if hasattr(real_torch, "__version__"):
+                        mock_torch.__version__ = real_torch.__version__
+                    # And maybe some other safe attributes
+                except Exception:
+                    pass
+                
+                # Patch both pandas and Streamlit function for to_arrow
+                try:
+                    import pandas as pd
                     
-            pd.DataFrame.to_arrow = safe_to_arrow
-            logger.info("Fixed pandas to_arrow conversion for better Arrow compatibility")
+                    # Create a safer to_arrow function
+                    def safe_to_arrow(self, *args, **kwargs):
+                        # Strip problematic dtypes
+                        return fix_dataframe_dtypes(self).to_arrow(*args, **kwargs)
+                    
+                    # Apply the patch
+                    pd.DataFrame.to_arrow = safe_to_arrow
+                    logger.info("Patched pandas.DataFrame.to_arrow for better compatibility")
+                except Exception as e:
+                    logger.warning(f"Could not patch pandas arrow conversion: {str(e)}")
+                    
+                logger.info("Applied torch monkey patch to prevent errors")
+        else:
+            logger.info("Streamlit not detected - skipping torch compatibility patches")
+            
     except Exception as e:
-        logger.warning(f"Could not patch pandas arrow conversion: {str(e)}")
-        
-    return True 
+        logger.warning(f"Error applying PyTorch monkey patch: {str(e)}")
 
-def validate_dataframe_for_streamlit(df):
-    """
-    Check a DataFrame for columns with unsupported types for Streamlit/Arrow serialization.
-    Returns a tuple (is_valid, message, problematic_columns)
-    """
-    if not isinstance(df, pd.DataFrame):
-        return True, "Input is not a DataFrame.", []
-    problematic = []
-    for col in df.columns:
-        dtype = df[col].dtype
-        inferred = pd.api.types.infer_dtype(df[col], skipna=True)
-        if inferred in ["mixed", "mixed-integer", "mixed-integer-float", "complex", "mixed-integer-float", "mixed-integer-float"]:
-            problematic.append((col, str(dtype), inferred))
-        elif any(isinstance(x, (list, dict, tuple, set, bytes)) for x in df[col].head(20)):
-            problematic.append((col, str(dtype), "contains complex objects"))
-    if problematic:
-        msg = "The following columns have unsupported or mixed types and may cause display/serialization errors: "
-        msg += ", ".join([f"'{col}' (dtype={dtype}, inferred={inferred})" for col, dtype, inferred in problematic])
-        return False, msg, problematic
-    return True, "DataFrame is valid for Streamlit display.", [] 
+# Initialize caching when the module is imported
+add_caching_decorators() 

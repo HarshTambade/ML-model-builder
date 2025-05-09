@@ -6,6 +6,10 @@ Contains global settings and paths used throughout the application.
 import os
 import json
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configuration for optional dependencies that might cause issues
 DEPENDENCY_CONFIG = {
@@ -158,10 +162,12 @@ FILE_SIZE_LIMITS = {
 }
 
 # API Keys and external services configuration
-# Get API keys from environment variables or use empty string as default
+# Get API keys from environment variables with secure defaults (empty strings)
 HUGGINGFACE_API_KEY = os.environ.get("HUGGINGFACE_API_KEY", "")
-KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "helllodigisir")
-KAGGLE_API_KEY = os.environ.get("KAGGLE_API_KEY", "50ba11f56bdaa1ce0c7f3032c8629acf")
+KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "")
+KAGGLE_API_KEY = os.environ.get("KAGGLE_API_KEY", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # Function to save user preferences
 def save_user_preferences(preferences, user_id='default'):

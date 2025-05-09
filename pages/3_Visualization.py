@@ -272,8 +272,8 @@ else:
         if dataset_info and dataset_info["data"] is not None:
             df = dataset_info["data"]
             
-            # Before any DataFrame display or visualization, validate the DataFrame
-            is_valid, msg, problematic = validate_dataframe_for_streamlit(df)
+            # Validate DataFrame before display
+            is_valid, msg = validate_dataframe_for_streamlit(df)
             if not is_valid:
                 st.error(f"Cannot display DataFrame: {msg}")
             else:

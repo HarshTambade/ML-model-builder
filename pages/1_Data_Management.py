@@ -84,8 +84,8 @@ with dataset_tabs[0]:
                 df = load_dataset(temp_file_path)
                 # Fix DataFrame for display
                 df = fix_dataframe_dtypes(df)
-                # Validate DataFrame before display
-                is_valid, msg, problematic = validate_dataframe_for_streamlit(df)
+                # Validate DataFrame before displaying
+                is_valid, msg = validate_dataframe_for_streamlit(df)
                 if not is_valid:
                     st.error(f"Cannot display DataFrame: {msg}")
                 else:
